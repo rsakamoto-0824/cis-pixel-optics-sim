@@ -30,15 +30,19 @@ python -m app.main
 # 3. 物理検証（フレネル解析解との比較 + メッシュ収束確認、約1分）
 python -m tests.validate_fresnel
 
-# 4. 動作確認サンプル（2D断面、垂直入射とCRA 25°、約30秒）
-python -m tests.run_sample_2d
-# 結果は jobs/sample_2d_cra00/ と jobs/sample_2d_cra25/ に出力される
+# 4. 動作確認サンプル
+python -m tests.run_sample_2d           # 2D断面（垂直入射とCRA 25°、約30秒）
+python -m tests.run_sample_crosstalk_2d # クロストーク評価（2D・中央照射、約30秒）
+python -m tests.run_sample_3d           # 3D（低解像度の傾向確認、約1分）
+# 結果は jobs/sample_*/ に出力される
 
 # 5. Web UIを使わない直接計算（input.jsonの書式は engine/fdtd_worker.py を参照）
 python -m engine.fdtd_worker <ジョブフォルダ>
 ```
 
-現在は2D断面モードに対応。3Dモード（真上ビュー・クロストーク定量評価）は開発中。
+対応機能: 2D断面／3D（真上ビュー付き）／クロストーク評価（中央画素照射）／
+パラメータスイープ（入射角・波長・画素サイズ・OCL高さ・OCL曲率・CF膜厚、CSV出力付き）。
+3Dの既定解像度（100セル/µm）は計算に数十分かかるため、まず低解像度で傾向を確認すること。
 
 ## 必要な環境変数
 

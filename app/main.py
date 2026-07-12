@@ -68,6 +68,44 @@ def get_job_image(job_id: str):
     return FileResponse(image_path)
 
 
+@app.get("/api/jobs/{job_id}/topview")
+def get_job_top_view(job_id: str):
+    """真上ビューPNGを返す（3Dモードのみ。初回アクセス時に生成する）。"""
+    job_dir = JOBS_DIR / job_id
+    image_path = job_dir / "top_view.png"
+    if not image_path.exists():
+        if not (job_dir / "fields.npz").exists():
+            raise HTTPException(status_code=404,
+                                detail="計算結果がまだありません")
+        if result_plotter.plot_top_view(job_dir) is None:
+            raise HTTPException(status_code=404,
+                                detail="真上ビューは3Dモードのみ出力されます")
+    return FileResponse(image_path)
+
+
+@app.get("/api/jobs/{job_id}/sweep-plot")
+def get_job_sweep_plot(job_id: str):
+    """スイープ結果グラフPNGを返す（初回アクセス時に生成する）。"""
+    job_dir = JOBS_DIR / job_id
+    image_path = job_dir / "sweep_plot.png"
+    if not image_path.exists():
+        result = job_manager.get_job_result(job_id)
+        if not result or result.get("type") != "sweep":
+            raise HTTPException(status_code=404,
+                                detail="スイープ結果がありません")
+        result_plotter.plot_sweep(job_dir, result["sweep"])
+    return FileResponse(image_path)
+
+
+@app.get("/api/jobs/{job_id}/csv")
+def get_job_csv(job_id: str):
+    csv_path = JOBS_DIR / job_id / "sweep.csv"
+    if not csv_path.exists():
+        raise HTTPException(status_code=404, detail="CSVがありません")
+    return FileResponse(csv_path, media_type="text/csv",
+                        filename=f"sweep_{job_id}.csv")
+
+
 @app.post("/api/jobs/{job_id}/cancel")
 def cancel_job(job_id: str):
     if not job_manager.cancel_job(job_id):
