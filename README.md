@@ -12,21 +12,27 @@ FDTD法（Meep）で画素構造（画素サイズ・On Chip Lens形状・共有
 - 計算モード: 2D断面（高速・分オーダー）／3D（真上ビュー・共有OCL評価、数十分オーダー）
 - 詳細は [requirements.md](requirements.md)（要件）と [design.md](design.md)（設計）を参照
 
-## 実行方法（開発完了後に確定）
+## 実行方法
 
 Python 3.12の単一環境で動かす（本プロジェクト限定のPythonバージョンルール例外。design.md 1章を参照）。
 
 ```bash
-# 1. 環境作成（miniforge/conda、Python 3.12 + Meep）
-conda create -n cis-pixel-optics -c conda-forge python=3.12 pymeep
+# 1. 環境作成（初回のみ。condaが無ければ brew install --cask miniforge）
+conda create -y -n cis-pixel-optics -c conda-forge python=3.12 pymeep matplotlib-base
 conda activate cis-pixel-optics
-pip install -r app/requirements.txt
-# ※パッケージ名・手順は環境構築タスクで確定する
 
-# 2. アプリ起動
-python app/main.py
-# ブラウザで http://localhost:8000 を開く
+# 2. 物理検証（フレネル解析解との比較 + メッシュ収束確認、約1分）
+python -m tests.validate_fresnel
+
+# 3. 動作確認サンプル（2D断面、垂直入射とCRA 25°、約30秒）
+python -m tests.run_sample_2d
+# 結果は jobs/sample_2d_cra00/ と jobs/sample_2d_cra25/ に出力される
+
+# 4. 任意パラメータでの計算（input.jsonの書式は engine/fdtd_worker.py を参照）
+python -m engine.fdtd_worker <ジョブフォルダ>
 ```
+
+Web UI（`python app/main.py`）は開発中。現在は計算エンジン（2Dモード）まで動作する。
 
 ## 必要な環境変数
 
