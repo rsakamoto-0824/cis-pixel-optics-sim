@@ -94,6 +94,44 @@
         </fieldset>
 
         <fieldset>
+          <legend>計算モード</legend>
+          <label>モード
+            <select id="calc-mode">
+              <option value="2d" selected>2D断面（数秒〜数分）</option>
+              <option value="3d">3D（数十分）</option>
+            </select>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="crosstalk-enabled">
+            クロストーク評価（中央画素のみ照射）
+          </label>
+          <label>真上ビュー深さ [µm]（3D、空欄=PD面）
+            <input type="number" id="view-depth" min="0" max="10" step="0.1"
+                   placeholder="PD面と同じ">
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>パラメータスイープ</legend>
+          <label class="checkbox-label">
+            <input type="checkbox" id="sweep-enabled"> スイープ実行
+          </label>
+          <label>対象パラメータ
+            <select id="sweep-parameter">
+              <option value="source.incident_angle_deg" selected>入射角 CRA [°]</option>
+              <option value="source.wavelength_nm">波長 [nm]</option>
+              <option value="pixel_pitch_um">画素サイズ [µm]</option>
+              <option value="ocl.height_um">OCL高さ [µm]</option>
+              <option value="ocl.superellipse_exponent">スーパー楕円指数</option>
+              <option value="layers.color_filter_um">カラーフィルタ膜厚 [µm]</option>
+            </select>
+          </label>
+          <label>値リスト（カンマ区切り）
+            <input type="text" id="sweep-values" value="0, 10, 20, 30">
+          </label>
+        </fieldset>
+
+        <fieldset>
           <legend>光・計算条件</legend>
           <label>波長 [nm]
             <input type="number" id="wavelength" value="550"

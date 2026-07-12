@@ -16,8 +16,27 @@ function numberValue(id) {
   return parseFloat(document.getElementById(id).value);
 }
 
-function collectParams() {
+function collectSweep() {
+  if (!document.getElementById("sweep-enabled").checked) return null;
+  const values = document.getElementById("sweep-values").value
+    .split(",")
+    .map((text) => parseFloat(text.trim()))
+    .filter((value) => !Number.isNaN(value));
   return {
+    parameter: document.getElementById("sweep-parameter").value,
+    values: values,
+  };
+}
+
+function collectParams() {
+  const viewDepthText = document.getElementById("view-depth").value;
+  return {
+    mode: document.getElementById("calc-mode").value,
+    crosstalk: document.getElementById("crosstalk-enabled").checked,
+    view: {
+      depth_um: viewDepthText === "" ? null : parseFloat(viewDepthText),
+    },
+    sweep: collectSweep(),
     pixel_pitch_um: numberValue("pixel-pitch"),
     ocl: {
       enabled: document.getElementById("ocl-enabled").checked,
@@ -144,28 +163,90 @@ function watchJob(jobId) {
 }
 
 function renderResult(jobId, result) {
+  if (result.type === "sweep") {
+    renderSweepResult(jobId, result);
+    return;
+  }
+
   const efficiencyPercent =
     (result.collection_efficiency_total * 100).toFixed(1);
   const perPixel = result.collection_efficiency_per_pixel
     .map((value, index) => `画素${index + 1}: ${(value * 100).toFixed(1)}%`)
     .join(" / ");
 
+  let metrics = `
+    <div class="metric">
+      <div class="metric-label">集光効率（合計）</div>
+      <div class="metric-value">${efficiencyPercent}%</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">画素ごとの内訳</div>
+      <div class="metric-value" style="font-size:0.95rem">${perPixel}</div>
+    </div>
+  `;
+  if (result.crosstalk_total !== undefined) {
+    const centerPercent =
+      (result.collection_efficiency_center * 100).toFixed(1);
+    const crosstalkPercent = (result.crosstalk_total * 100).toFixed(2);
+    metrics += `
+      <div class="metric">
+        <div class="metric-label">集光効率（中央画素）</div>
+        <div class="metric-value">${centerPercent}%</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">クロストーク（漏れ合計）</div>
+        <div class="metric-value">${crosstalkPercent}%</div>
+      </div>
+    `;
+  }
+  metrics += `
+    <div class="metric">
+      <div class="metric-label">計算時間</div>
+      <div class="metric-value">${result.elapsed_seconds}秒</div>
+    </div>
+  `;
+
+  let images =
+    `<img src="/api/jobs/${jobId}/image" alt="断面の構造と電場強度分布">`;
+  if (result.input && result.input.mode === "3d") {
+    images += `
+      <img src="/api/jobs/${jobId}/topview" alt="真上ビューの電場強度分布">`;
+  }
+
+  resultArea.innerHTML =
+    `<div class="result-numbers">${metrics}</div>${images}`;
+}
+
+function renderSweepResult(jobId, result) {
+  const rows = result.sweep.results.map((entry) => {
+    const crosstalkCell = entry.crosstalk_total !== undefined
+      ? `<td>${(entry.crosstalk_total * 100).toFixed(2)}%</td>` : "";
+    return `<tr><td>${entry.value}</td>` +
+      `<td>${(entry.collection_efficiency_total * 100).toFixed(1)}%</td>` +
+      crosstalkCell + `</tr>`;
+  }).join("");
+  const crosstalkHeader = result.sweep.results[0].crosstalk_total !== undefined
+    ? "<th>クロストーク</th>" : "";
+
   resultArea.innerHTML = `
     <div class="result-numbers">
       <div class="metric">
-        <div class="metric-label">集光効率（合計）</div>
-        <div class="metric-value">${efficiencyPercent}%</div>
-      </div>
-      <div class="metric">
-        <div class="metric-label">画素ごとの内訳</div>
-        <div class="metric-value" style="font-size:0.95rem">${perPixel}</div>
+        <div class="metric-label">スイープ対象</div>
+        <div class="metric-value" style="font-size:0.95rem">
+          ${result.sweep.label}（${result.sweep.values.length}条件）</div>
       </div>
       <div class="metric">
         <div class="metric-label">計算時間</div>
         <div class="metric-value">${result.elapsed_seconds}秒</div>
       </div>
     </div>
-    <img src="/api/jobs/${jobId}/image" alt="断面の構造と電場強度分布">
+    <p><a href="/api/jobs/${jobId}/csv" download>CSVをダウンロード</a></p>
+    <img src="/api/jobs/${jobId}/sweep-plot" alt="スイープ結果のグラフ">
+    <table>
+      <thead><tr><th>${result.sweep.label}</th><th>集光効率</th>
+        ${crosstalkHeader}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
   `;
 }
 

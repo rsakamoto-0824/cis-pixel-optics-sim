@@ -53,6 +53,69 @@ def plot_cross_section(job_dir):
     return output_path
 
 
+def plot_top_view(job_dir):
+    """fields.npz の真上ビュー（XY平面 |E|^2）PNGを作り、パスを返す。
+
+    真上ビューのデータは3Dモードのみ保存される。無い場合は None を返す。
+    """
+    job_dir = Path(job_dir)
+    output_path = job_dir / "top_view.png"
+
+    data = np.load(job_dir / "fields.npz")
+    if "intensity_xy" not in data:
+        return None
+
+    x_um, y_um = data["xy_x_um"], data["xy_y_um"]
+    extent = [x_um[0], x_um[-1], y_um[0], y_um[-1]]
+
+    figure, ax = plt.subplots(figsize=(6, 5))
+    image = ax.imshow(data["intensity_xy"].T, origin="lower", extent=extent,
+                      cmap="inferno", aspect="equal")
+    ax.contour(data["epsilon_xy"].T, levels=3, origin="lower", extent=extent,
+               colors="white", linewidths=0.4)
+    depth = float(data["view_depth_um"])
+    ax.set_title(f"|E|² 真上ビュー（Si上面から {depth:.2f} µm）")
+    ax.set_xlabel("x [µm]")
+    ax.set_ylabel("y [µm]")
+    figure.colorbar(image, ax=ax, shrink=0.85)
+
+    figure.savefig(output_path, dpi=CROSS_SECTION_DPI, bbox_inches="tight")
+    plt.close(figure)
+    return output_path
+
+
+def plot_sweep(job_dir, sweep):
+    """スイープ結果の折れ線グラフPNGを作り、パスを返す。
+
+    sweep は result.json 内の sweep ブロック（label / results を含む辞書）。
+    """
+    job_dir = Path(job_dir)
+    output_path = job_dir / "sweep_plot.png"
+
+    values = [entry["value"] for entry in sweep["results"]]
+    efficiency = [entry["collection_efficiency_total"] * 100.0
+                  for entry in sweep["results"]]
+
+    figure, ax = plt.subplots(figsize=(7, 4.5))
+    ax.plot(values, efficiency, marker="o", label="集光効率（合計）")
+    if "crosstalk_total" in sweep["results"][0]:
+        crosstalk = [entry["crosstalk_total"] * 100.0
+                     for entry in sweep["results"]]
+        center = [entry["collection_efficiency_center"] * 100.0
+                  for entry in sweep["results"]]
+        ax.plot(values, center, marker="s", label="集光効率（中央画素）")
+        ax.plot(values, crosstalk, marker="^", label="クロストーク（漏れ合計）")
+    ax.set_xlabel(sweep["label"])
+    ax.set_ylabel("比率 [%]")
+    ax.set_title("パラメータスイープ結果")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+
+    figure.savefig(output_path, dpi=CROSS_SECTION_DPI, bbox_inches="tight")
+    plt.close(figure)
+    return output_path
+
+
 def plot_structure_preview(epsilon, x_um, y_um, si_top_y):
     """構造プレビュー（誘電率分布）のPNGバイト列を返す。"""
     y_um = y_um - si_top_y
