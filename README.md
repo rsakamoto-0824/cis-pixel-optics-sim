@@ -40,4 +40,4 @@ python app/main.py
 - 計算はすべてローカルPC内で完結する。構造データ・結果を外部サービスへ送信しない
 - 3Dモードは1条件あたり数十分かかる場合がある。広いパラメータスイープは2Dモードで先に絞り込むこと
 - 本リポジトリはPrivateで運用する
-- 課題は [issues.md](issues.md)、スケジュールは [schedule.json](schedule.json)（ガントチャート表示用）で管理する
+- 課題は [issues.md](issues.md) で管理する。実行タスクはAppleリマインダーで管理する

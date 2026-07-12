@@ -29,7 +29,6 @@
 cis-pixel-optics-sim/
 ├── requirements.md          # 要件仕様書
 ├── design.md                # 本書
-├── schedule.json            # スケジュール（ガントチャート用）
 ├── issues.md                # 課題管理
 ├── README.md
 ├── app/                     # アプリ本体（Python 3.14.5）
