@@ -127,12 +127,12 @@ async def preview_structure(request: Request):
     """FDTDを実行せずに構造断面図を生成する（入力ミス防止用）。"""
     user_params = await request.json()
     try:
-        epsilon, x_um, y_um, si_top_y = fdtd_worker.compute_epsilon_preview(
+        epsilon, x_um, y_um, layer_info = fdtd_worker.compute_epsilon_preview(
             user_params)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
     png_bytes = result_plotter.plot_structure_preview(
-        epsilon, x_um, y_um, si_top_y)
+        epsilon, x_um, y_um, layer_info)
     return Response(content=png_bytes, media_type="image/png")
 
 

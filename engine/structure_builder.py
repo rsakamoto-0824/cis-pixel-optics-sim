@@ -92,13 +92,20 @@ def lens_contour_scale(z_from_base_um, half_width_um, height_um, shape,
 
 
 def pixel_boundary_positions_um(pixel_pitch_um, num_pixels, placement,
-                                sharing, center_offset_um=0.0):
-    """DTIを置く画素境界の位置リストを返す（1軸分、セル中心を0とする）。"""
+                                sharing, unit_pixels=None,
+                                center_offset_um=0.0):
+    """DTIを置く画素境界の位置リストを返す（1軸分、セル中心を0とする）。
+
+    「共有単位境界のみ」では、共有レンズ単位（unit_pixels画素）ごとの
+    境界にだけ溝を置く。
+    """
+    if unit_pixels is None:
+        unit_pixels = num_pixels
     half_extent = pixel_pitch_um * num_pixels / 2.0
     positions = []
     for i in range(num_pixels + 1):
         x = center_offset_um - half_extent + i * pixel_pitch_um
-        is_shared_unit_boundary = (i == 0 or i == num_pixels)
+        is_shared_unit_boundary = (i % unit_pixels == 0)
         if placement == "shared_only" and sharing != "single":
             if not is_shared_unit_boundary:
                 continue
@@ -132,11 +139,14 @@ def lens_layout_2d(params, crosstalk):
     sharing = params["ocl"]["sharing"]
     offset = params["ocl"]["offset_um"]
     if crosstalk:
-        # 受光内訳・クロストーク評価は1画素1レンズ×3画素（中央照射）
-        num_pixels = CROSSTALK_GRID_PIXELS
-        lens_centers = [pitch * (i - (num_pixels - 1) / 2.0) + offset
-                        for i in range(num_pixels)]
-        lens_half_width = pitch / 2.0
+        # 受光内訳・クロストーク評価は共有レンズ単位×3（中央単位のみ照射）。
+        # 1画素1レンズなら3画素、2画素/4画素共有なら6画素のセルになる
+        unit_pixels = NUM_PIXELS_2D[sharing]
+        unit_width = pitch * unit_pixels
+        num_pixels = CROSSTALK_GRID_PIXELS * unit_pixels
+        lens_centers = [unit_width * (i - (CROSSTALK_GRID_PIXELS - 1) / 2.0)
+                        + offset for i in range(CROSSTALK_GRID_PIXELS)]
+        lens_half_width = unit_width / 2.0
         return num_pixels, lens_centers, lens_half_width
     num_pixels = NUM_PIXELS_2D[sharing]
     if sharing == "single":
@@ -223,9 +233,11 @@ def build_structure_2d(params, media):
     # DTI: Si上面から指定深さまでの縦溝。Siより後に置いてSiを上書きする
     # 位置オフセット（dti.offset_um）でDTI格子だけを横にずらせる
     dti = params["dti"]
+    unit_pixels = NUM_PIXELS_2D[sharing]
     if dti["enabled"] and dti["depth_um"] > 0.0:
         boundary_xs = pixel_boundary_positions_um(
-            pitch, num_pixels, dti["placement"], sharing)
+            pitch, num_pixels, dti["placement"], sharing,
+            unit_pixels=unit_pixels)
         for x in boundary_xs:
             for shift in wrap_shifts:
                 geometry.append(mp.Block(
@@ -240,12 +252,18 @@ def build_structure_2d(params, media):
         "cell_width_um": cell_width,
         "cell_height_um": cell_height,
         "num_pixels": num_pixels,
+        "unit_pixels": unit_pixels,
         "pixel_centers_x": pixel_centers,
-        # クロストーク評価では中央画素の幅だけを照射する
-        "source_width_um": pitch if crosstalk else cell_width,
+        # クロストーク評価では中央の共有レンズ単位の幅だけを照射する
+        "source_width_um": (pitch * unit_pixels if crosstalk
+                            else cell_width),
         "source_y": to_cell_y(heights["source_height"]),
         "si_top_y": to_cell_y(0.0),
         "pd_monitor_y": to_cell_y(-params["pd"]["top_depth_um"]),
+        # 断面図で層を塗り分けるための境界座標（セル座標）
+        "ar_top_y": to_cell_y(heights["ar_top"]),
+        "cf_top_y": to_cell_y(heights["cf_top"]),
+        "planarization_top_y": to_cell_y(heights["planarization_top"]),
         "y_min": to_cell_y(heights["bottom"]),
         "y_max": to_cell_y(heights["top"]),
     }
@@ -363,17 +381,18 @@ def build_structure_3d(params, media):
 
     # DTI: 画素境界に沿った格子状の溝（X方向・Y方向の壁の組み合わせ）
     dti = params["dti"]
+    unit_x, unit_y = UNIT_PIXELS_3D[sharing]
     if dti["enabled"] and dti["depth_um"] > 0.0:
         trench_center_z = to_cell_z(-dti["depth_um"] / 2.0)
         for x in pixel_boundary_positions_um(pitch, num_x, dti["placement"],
-                                             sharing):
+                                             sharing, unit_pixels=unit_x):
             geometry.append(mp.Block(
                 size=mp.Vector3(dti["width_um"], pixels_width_y,
                                 dti["depth_um"]),
                 center=mp.Vector3(x, 0, trench_center_z),
                 material=media["dti"]))
         for y in pixel_boundary_positions_um(pitch, num_y, dti["placement"],
-                                             sharing):
+                                             sharing, unit_pixels=unit_y):
             geometry.append(mp.Block(
                 size=mp.Vector3(pixels_width_x, dti["width_um"],
                                 dti["depth_um"]),
@@ -395,6 +414,10 @@ def build_structure_3d(params, media):
         "source_z": to_cell_z(heights["source_height"]),
         "si_top_z": to_cell_z(0.0),
         "pd_monitor_z": to_cell_z(-params["pd"]["top_depth_um"]),
+        # 断面図で層を塗り分けるための境界座標（セル座標）
+        "ar_top_z": to_cell_z(heights["ar_top"]),
+        "cf_top_z": to_cell_z(heights["cf_top"]),
+        "planarization_top_z": to_cell_z(heights["planarization_top"]),
         "z_min": to_cell_z(heights["bottom"]),
         "z_max": to_cell_z(heights["top"]),
     }
