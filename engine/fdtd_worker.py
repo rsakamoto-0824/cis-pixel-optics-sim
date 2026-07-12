@@ -159,8 +159,9 @@ def validate_params(params):
             errors.append(f"未知のレンズ形状です: {params['ocl']['shape']}")
         if params["ocl"]["sharing"] not in ("single", "shared2", "shared4"):
             errors.append(f"未知のOCL共有方式です: {params['ocl']['sharing']}")
-    if params["crosstalk"] and params["ocl"]["sharing"] != "single":
-        errors.append("受光内訳・クロストーク評価は現在1画素1レンズのみ対応しています")
+    if (params["crosstalk"] and params["mode"] == "3d"
+            and params["ocl"]["sharing"] != "single"):
+        errors.append("3Dの受光内訳・クロストーク評価は1画素1レンズのみ対応しています")
 
     max_offset = params["pixel_pitch_um"] / 2.0
     for offset, label in ((params["ocl"]["offset_um"], "OCL偏心"),
@@ -302,9 +303,9 @@ def run_until_decayed(sim, decay_point, decay_component, progress_path,
             FIELD_DECAY_THRESHOLD))
 
 
-def crosstalk_summary(efficiency_per_pixel, center_index):
-    """中央画素の効率と、周辺画素への漏れ合計を返す。"""
-    center = efficiency_per_pixel[center_index]
+def crosstalk_summary(efficiency_per_pixel, center_indices):
+    """中央（照射した共有単位）の効率合計と、周辺への漏れ合計を返す。"""
+    center = sum(efficiency_per_pixel[i] for i in center_indices)
     neighbors_total = sum(efficiency_per_pixel) - center
     return center, neighbors_total
 
@@ -386,7 +387,9 @@ def run_case_2d(params, case_dir, progress_path, phase_prefix, start_time):
         x_um=np.linspace(-half_width, half_width, intensity.shape[0]),
         y_um=np.linspace(coords["y_min"], coords["y_max"],
                          intensity.shape[1]),
-        si_top_y=coords["si_top_y"], pd_monitor_y=coords["pd_monitor_y"])
+        si_top_y=coords["si_top_y"], pd_monitor_y=coords["pd_monitor_y"],
+        ar_top_y=coords["ar_top_y"], cf_top_y=coords["cf_top_y"],
+        planarization_top_y=coords["planarization_top_y"])
 
     result = {
         "incident_flux_total": incident_flux_total,
@@ -396,11 +399,14 @@ def run_case_2d(params, case_dir, progress_path, phase_prefix, start_time):
         "polarization": "Ez（2D・s偏光）",
     }
     if params["crosstalk"]:
-        center_index = len(efficiency_per_pixel) // 2
+        # 中央の共有レンズ単位に属する画素（例: 6画素なら中央の2画素）
+        unit_pixels = coords["unit_pixels"]
+        center_indices = list(range(unit_pixels, 2 * unit_pixels))
         center, neighbors_total = crosstalk_summary(efficiency_per_pixel,
-                                                    center_index)
+                                                    center_indices)
         result.update({
-            "center_pixel_index": center_index,
+            "unit_pixels": unit_pixels,
+            "center_pixel_indices": center_indices,
             "collection_efficiency_center": center,
             "crosstalk_total": neighbors_total,
         })
@@ -509,6 +515,8 @@ def run_case_3d(params, case_dir, progress_path, phase_prefix, start_time):
         y_um=np.linspace(coords["z_min"], coords["z_max"],
                          intensity_xz.shape[1]),
         si_top_y=coords["si_top_z"], pd_monitor_y=coords["pd_monitor_z"],
+        ar_top_y=coords["ar_top_z"], cf_top_y=coords["cf_top_z"],
+        planarization_top_y=coords["planarization_top_z"],
         intensity_xy=intensity_xy, epsilon_xy=epsilon_xy,
         xy_x_um=np.linspace(-half_x, half_x, intensity_xy.shape[0]),
         xy_y_um=np.linspace(-half_y, half_y, intensity_xy.shape[1]),
@@ -525,11 +533,12 @@ def run_case_3d(params, case_dir, progress_path, phase_prefix, start_time):
         "view_depth_um": view_depth,
     }
     if params["crosstalk"]:
-        center_index = len(efficiency_per_pixel) // 2
+        center_indices = [len(efficiency_per_pixel) // 2]
         center, neighbors_total = crosstalk_summary(efficiency_per_pixel,
-                                                    center_index)
+                                                    center_indices)
         result.update({
-            "center_pixel_index": center_index,
+            "unit_pixels": 1,
+            "center_pixel_indices": center_indices,
             "collection_efficiency_center": center,
             "crosstalk_total": neighbors_total,
         })
@@ -641,7 +650,8 @@ def compute_epsilon_preview(user_params):
     """FDTDを実行せずに構造（誘電率分布）だけを計算する（プレビュー用）。
 
     3Dモードでも断面（XZ）のプレビューを返す。
-    戻り値: (epsilon2次元配列, 横座標, 縦座標, Si上面の縦座標)
+    戻り値: (epsilon2次元配列, 横座標, 縦座標, 層境界の辞書)
+    層境界の辞書はセル座標の si_top / ar_top / cf_top を持つ。
     """
     params = merge_defaults(user_params, DEFAULT_PARAMS)
     validate_params(params)
@@ -654,7 +664,9 @@ def compute_epsilon_preview(user_params):
         size = mp.Vector3(coords["cell_x_um"], 0, coords["cell_height_um"])
         lateral_um = coords["cell_x_um"]
         vertical_range = (coords["z_min"], coords["z_max"])
-        si_top = coords["si_top_z"]
+        layer_info = {"si_top": coords["si_top_z"],
+                      "ar_top": coords["ar_top_z"],
+                      "cf_top": coords["cf_top_z"]}
     else:
         structure = structure_builder.build_structure_2d(params, media)
         coords = structure["coords"]
@@ -662,7 +674,9 @@ def compute_epsilon_preview(user_params):
         size = mp.Vector3(coords["cell_width_um"], coords["cell_height_um"])
         lateral_um = coords["cell_width_um"]
         vertical_range = (coords["y_min"], coords["y_max"])
-        si_top = coords["si_top_y"]
+        layer_info = {"si_top": coords["si_top_y"],
+                      "ar_top": coords["ar_top_y"],
+                      "cf_top": coords["cf_top_y"]}
 
     sim = mp.Simulation(
         cell_size=structure["cell_size"],
@@ -675,7 +689,7 @@ def compute_epsilon_preview(user_params):
     x_um = np.linspace(-lateral_um / 2.0, lateral_um / 2.0, epsilon.shape[0])
     y_um = np.linspace(vertical_range[0], vertical_range[1],
                        epsilon.shape[1])
-    return epsilon, x_um, y_um, si_top
+    return epsilon, x_um, y_um, layer_info
 
 
 def main():

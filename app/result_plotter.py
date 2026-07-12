@@ -14,6 +14,24 @@ plt.rcParams["font.family"] = ["Hiragino Sans", "Yu Gothic", "Meiryo",
 
 CROSS_SECTION_DPI = 150
 
+# カラーフィルタ層の強調表示（構造図で位置が分かるようにする）
+COLOR_FILTER_BAND_COLOR = "#ff8c00"
+COLOR_FILTER_BAND_ALPHA = 0.35
+
+
+def draw_color_filter_band(ax, cf_bottom_y, cf_top_y, si_top_y):
+    """カラーフィルタ層を半透明の帯で塗り、凡例用のラベルを付ける。
+
+    座標はセル座標で受け取り、Si上面=0の物理座標に直して描く。
+    厚さ0（層なし）のときは何も描かない。
+    """
+    bottom = float(cf_bottom_y) - float(si_top_y)
+    top = float(cf_top_y) - float(si_top_y)
+    if top - bottom <= 0.0:
+        return
+    ax.axhspan(bottom, top, color=COLOR_FILTER_BAND_COLOR,
+               alpha=COLOR_FILTER_BAND_ALPHA, label="カラーフィルタ")
+
 
 def plot_cross_section(job_dir):
     """fields.npz から構造と|E|^2の断面図PNGを作り、そのパスを返す。"""
@@ -33,6 +51,10 @@ def plot_cross_section(job_dir):
 
     ax_structure.imshow(data["epsilon"].T, origin="lower", extent=extent,
                         cmap="binary", aspect="equal")
+    if "cf_top_y" in data:
+        draw_color_filter_band(ax_structure, data["ar_top_y"],
+                               data["cf_top_y"], si_top_y)
+        ax_structure.legend(loc="lower right", fontsize=8)
     ax_structure.set_title("構造（誘電率）")
     ax_structure.set_xlabel("x [µm]")
     ax_structure.set_ylabel("y [µm]（Si上面 = 0）")
@@ -116,8 +138,12 @@ def plot_sweep(job_dir, sweep):
     return output_path
 
 
-def plot_structure_preview(epsilon, x_um, y_um, si_top_y):
-    """構造プレビュー（誘電率分布）のPNGバイト列を返す。"""
+def plot_structure_preview(epsilon, x_um, y_um, layer_info):
+    """構造プレビュー（誘電率分布）のPNGバイト列を返す。
+
+    layer_info はセル座標の {"si_top", "ar_top", "cf_top"} を持つ辞書。
+    """
+    si_top_y = layer_info["si_top"]
     y_um = y_um - si_top_y
     extent = [x_um[0], x_um[-1], y_um[0], y_um[-1]]
 
@@ -126,6 +152,8 @@ def plot_structure_preview(epsilon, x_um, y_um, si_top_y):
                       cmap="viridis", aspect="equal")
     ax.axhline(0.0, color="white", linewidth=0.8, linestyle="--",
                label="Si上面")
+    draw_color_filter_band(ax, layer_info["ar_top"], layer_info["cf_top"],
+                           si_top_y)
     ax.set_title("構造プレビュー（誘電率）")
     ax.set_xlabel("x [µm]")
     ax.set_ylabel("y [µm]（Si上面 = 0）")

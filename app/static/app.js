@@ -169,13 +169,18 @@ function renderResult(jobId, result) {
 
   const efficiencyPercent =
     (result.collection_efficiency_total * 100).toFixed(1);
-  // 受光内訳（3画素・中央照射）のときは位置が分かる名前で表示する
+  // 受光内訳（中央照射）のときは位置が分かる名前で表示する。
+  // 共有レンズでは単位内の画素番号を付ける（例: 中央-1, 中央-2）
   const perPixelValues = result.collection_efficiency_per_pixel;
-  const isBreakdown3 = (result.crosstalk_total !== undefined
-                        && perPixelValues.length === 3);
-  const pixelName = (index) => isBreakdown3
-    ? ["左隣", "中央", "右隣"][index]
-    : `画素${index + 1}`;
+  const unitPixels = result.unit_pixels || 1;
+  const isBreakdown = (result.crosstalk_total !== undefined
+                       && perPixelValues.length === 3 * unitPixels);
+  const pixelName = (index) => {
+    if (!isBreakdown) return `画素${index + 1}`;
+    const unitLabel = ["左隣", "中央", "右隣"][Math.floor(index / unitPixels)];
+    if (unitPixels === 1) return unitLabel;
+    return `${unitLabel}-${(index % unitPixels) + 1}`;
+  };
   const perPixel = perPixelValues
     .map((value, index) =>
       `${pixelName(index)}: ${(value * 100).toFixed(1)}%`)

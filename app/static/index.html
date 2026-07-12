@@ -109,11 +109,12 @@
           <legend>受光内訳の評価</legend>
           <label class="checkbox-label">
             <input type="checkbox" id="breakdown-enabled">
-            画素ごとの受光強度を算出（3画素・中央画素のみ照射）
+            画素ごとの受光強度を算出（中央のみ照射）
           </label>
-          <p class="field-note">中央の画素だけに光を当て、左隣・中央・右隣の
-            それぞれが受け取った光の割合を求めます。偏心や位置ずれの影響確認に
-            有効です。</p>
+          <p class="field-note">中央のレンズ単位だけに光を当て、各画素が
+            受け取った光の割合を求めます。2画素／4画素共有では中央の共有
+            レンズ（2画素分）を照射し、6画素の内訳を表示します。偏心や
+            位置ずれの影響確認に有効です。</p>
         </fieldset>
 
         <fieldset>
