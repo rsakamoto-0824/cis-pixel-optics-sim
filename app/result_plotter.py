@@ -46,8 +46,8 @@ def plot_cross_section(job_dir):
     pd_y = float(data["pd_monitor_y"]) - si_top_y
     extent = [x_um[0], x_um[-1], y_um[0], y_um[-1]]
 
-    figure, (ax_structure, ax_intensity) = plt.subplots(
-        1, 2, figsize=(9, 6), sharey=True)
+    figure, (ax_structure, ax_intensity, ax_silicon) = plt.subplots(
+        1, 3, figsize=(13, 6))
 
     ax_structure.imshow(data["epsilon"].T, origin="lower", extent=extent,
                         cmap="binary", aspect="equal")
@@ -65,10 +65,29 @@ def plot_cross_section(job_dir):
                          extent=extent, colors="white", linewidths=0.4)
     ax_intensity.axhline(pd_y, color="cyan", linewidth=0.8, linestyle="--",
                          label="PD面")
-    ax_intensity.set_title("|E|² 断面分布")
+    ax_intensity.set_title("|E|² 断面分布（全体）")
     ax_intensity.set_xlabel("x [µm]")
     ax_intensity.legend(loc="lower right")
     figure.colorbar(image, ax=ax_intensity, shrink=0.8)
+
+    # Si内部のみを切り出し、Si内の最大値で色スケールを取り直す
+    # （レンズ付近の明るさに埋もれず、Si内の光の分布が見える）
+    si_rows = (data["y_um"] - si_top_y) <= 0.0
+    intensity_si = data["intensity"][:, si_rows]
+    epsilon_si = data["epsilon"][:, si_rows]
+    y_si = y_um[si_rows]
+    extent_si = [x_um[0], x_um[-1], y_si[0], y_si[-1]]
+    image_si = ax_silicon.imshow(intensity_si.T, origin="lower",
+                                 extent=extent_si, cmap="inferno",
+                                 aspect="equal")
+    ax_silicon.contour(epsilon_si.T, levels=3, origin="lower",
+                       extent=extent_si, colors="white", linewidths=0.4)
+    ax_silicon.axhline(pd_y, color="cyan", linewidth=0.8, linestyle="--",
+                       label="PD面")
+    ax_silicon.set_title("|E|² Si内部（拡大スケール）")
+    ax_silicon.set_xlabel("x [µm]")
+    ax_silicon.legend(loc="lower right")
+    figure.colorbar(image_si, ax=ax_silicon, shrink=0.8)
 
     figure.savefig(output_path, dpi=CROSS_SECTION_DPI, bbox_inches="tight")
     plt.close(figure)

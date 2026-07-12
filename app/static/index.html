@@ -58,6 +58,13 @@
             <input type="number" id="ocl-offset" value="0"
                    min="-1.25" max="1.25" step="any">
           </label>
+          <label>ベース層厚 [µm]
+            <input type="number" id="ocl-base" value="0"
+                   min="0" max="2" step="any">
+          </label>
+          <p class="field-note">レンズ底面の下に残る同じ樹脂の平坦層です
+            （光路長の調整用）。レンズの一番低い場所からカラーフィルタまでの
+            厚みは「ベース層 + 平坦化膜」になります。</p>
         </fieldset>
 
         <fieldset>
@@ -129,6 +136,7 @@
               <option value="pixel_pitch_um">画素サイズ [µm]</option>
               <option value="ocl.height_um">OCL高さ [µm]</option>
               <option value="ocl.superellipse_exponent">スーパー楕円指数</option>
+              <option value="ocl.base_um">OCLベース層厚 [µm]</option>
               <option value="ocl.offset_um">OCL偏心 [µm]</option>
               <option value="dti.offset_um">DTIオフセット [µm]</option>
               <option value="layers.color_filter_um">カラーフィルタ膜厚 [µm]</option>

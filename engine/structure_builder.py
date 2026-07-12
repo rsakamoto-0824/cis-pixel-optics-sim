@@ -34,13 +34,23 @@ UNIT_PIXELS_3D = {"single": (1, 1), "shared2": (2, 1), "shared4": (2, 2)}
 # ---- 共通ヘルパー ----
 
 def compute_stack_heights(params):
-    """物理座標（Si上面 = 0）で各層の境界と計算領域の上下端を返す。"""
+    """物理座標（Si上面 = 0）で各層の境界と計算領域の上下端を返す。
+
+    OCLベース層は、レンズ底面の下に平らに残るレンズと同じ樹脂の層
+    （光路長の調整用）。レンズ最低部からカラーフィルタまでの厚みは
+    「ベース層 + 平坦化膜」になる。
+    """
     layers = params["layers"]
-    ocl_height = params["ocl"]["height_um"] if params["ocl"]["enabled"] else 0.0
+    if params["ocl"]["enabled"]:
+        ocl_height = params["ocl"]["height_um"]
+        ocl_base = params["ocl"]["base_um"]
+    else:
+        ocl_height = 0.0
+        ocl_base = 0.0
     ar_top = layers["ar_um"]
     cf_top = ar_top + layers["color_filter_um"]
     planarization_top = cf_top + layers["planarization_um"]
-    lens_base = planarization_top
+    lens_base = planarization_top + ocl_base
     source_height = lens_base + ocl_height + AIR_GAP_ABOVE_OCL_UM
     top = source_height + SOURCE_TO_PML_GAP_UM + PML_THICKNESS_UM
     # Siは下側PMLの中まで満たし、裏面反射のない半無限基板として扱う
@@ -202,6 +212,8 @@ def build_structure_2d(params, media):
         ("ar", 0.0, heights["ar_top"]),
         ("color_filter", heights["ar_top"], heights["cf_top"]),
         ("planarization", heights["cf_top"], heights["planarization_top"]),
+        # OCLベース層（レンズと同じ樹脂。光路長の調整用）
+        ("ocl", heights["planarization_top"], heights["lens_base"]),
     ]
     for name, layer_bottom, layer_top in layer_stack:
         thickness = layer_top - layer_bottom
@@ -360,6 +372,8 @@ def build_structure_3d(params, media):
         ("ar", 0.0, heights["ar_top"]),
         ("color_filter", heights["ar_top"], heights["cf_top"]),
         ("planarization", heights["cf_top"], heights["planarization_top"]),
+        # OCLベース層（レンズと同じ樹脂。光路長の調整用）
+        ("ocl", heights["planarization_top"], heights["lens_base"]),
     ]
     for name, layer_bottom, layer_top in layer_stack:
         thickness = layer_top - layer_bottom

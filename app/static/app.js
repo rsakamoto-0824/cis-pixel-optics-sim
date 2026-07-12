@@ -42,6 +42,7 @@ function collectParams() {
       superellipse_exponent: numberValue("ocl-superellipse-exponent"),
       sharing: document.getElementById("ocl-sharing").value,
       offset_um: numberValue("ocl-offset"),
+      base_um: numberValue("ocl-base"),
     },
     layers: {
       planarization_um: numberValue("layer-planarization"),
