@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CIS画素光学シミュレーター</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>CIS画素光学シミュレーター</h1>
+    <p class="subtitle">FDTD法（Meep）による集光特性評価 — 2D断面モード</p>
+  </header>
+
+  <main>
+    <section class="panel" id="parameter-panel">
+      <h2>計算パラメータ</h2>
+      <form id="parameter-form">
+        <fieldset>
+          <legend>画素</legend>
+          <label>画素サイズ [µm]
+            <input type="number" id="pixel-pitch" value="1.0"
+                   min="0.5" max="2.5" step="0.05" required>
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>On Chip Lens（OCL）</legend>
+          <label class="checkbox-label">
+            <input type="checkbox" id="ocl-enabled" checked> OCLあり
+          </label>
+          <label>高さ [µm]
+            <input type="number" id="ocl-height" value="0.5"
+                   min="0.1" max="1.5" step="0.05">
+          </label>
+          <label>レンズ形状
+            <select id="ocl-shape">
+              <option value="spherical_cap" selected>球面キャップ</option>
+              <option value="superellipse">スーパー楕円</option>
+            </select>
+          </label>
+          <label>スーパー楕円指数
+            <input type="number" id="ocl-superellipse-exponent" value="2.5"
+                   min="1.5" max="8" step="0.1">
+          </label>
+          <label>共有方式
+            <select id="ocl-sharing">
+              <option value="single" selected>1画素1レンズ</option>
+              <option value="shared2">2画素共有</option>
+              <option value="shared4">4画素共有（2Dは近似）</option>
+            </select>
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>層構造（膜厚 [µm]）</legend>
+          <label>平坦化膜
+            <input type="number" id="layer-planarization" value="0.1"
+                   min="0" max="2" step="0.05">
+          </label>
+          <label>カラーフィルタ
+            <input type="number" id="layer-color-filter" value="0.6"
+                   min="0" max="2" step="0.05">
+          </label>
+          <label>反射防止膜・酸化膜
+            <input type="number" id="layer-ar" value="0.1"
+                   min="0" max="1" step="0.01">
+          </label>
+          <label>Si厚
+            <input type="number" id="layer-si" value="3.0"
+                   min="1" max="10" step="0.5">
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>DTI（画素間分離）</legend>
+          <label class="checkbox-label">
+            <input type="checkbox" id="dti-enabled" checked> DTIあり
+          </label>
+          <label>幅 [µm]
+            <input type="number" id="dti-width" value="0.1"
+                   min="0.05" max="0.3" step="0.01">
+          </label>
+          <label>深さ [µm]
+            <input type="number" id="dti-depth" value="2.0"
+                   min="0" max="10" step="0.1">
+          </label>
+          <label>配置
+            <select id="dti-placement">
+              <option value="all" selected>全画素境界</option>
+              <option value="shared_only">共有単位境界のみ</option>
+            </select>
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>光・計算条件</legend>
+          <label>波長 [nm]
+            <input type="number" id="wavelength" value="550"
+                   min="400" max="700" step="10" required>
+          </label>
+          <label>入射角 CRA [°]
+            <input type="number" id="incident-angle" value="0"
+                   min="0" max="35" step="1" required>
+          </label>
+          <label>PD面の深さ（Si上面から）[µm]
+            <input type="number" id="pd-depth" value="0.5"
+                   min="0.1" max="5" step="0.1">
+          </label>
+          <label>メッシュ解像度 [セル/µm]
+            <input type="number" id="resolution" value="100"
+                   min="50" max="400" step="10">
+          </label>
+        </fieldset>
+
+        <div class="button-row">
+          <button type="button" id="preview-button">構造プレビュー</button>
+          <button type="submit" id="run-button" class="primary">計算実行</button>
+        </div>
+        <div id="form-message" class="message" hidden></div>
+      </form>
+    </section>
+
+    <section class="panel" id="output-panel">
+      <h2>構造プレビュー</h2>
+      <div id="preview-area" class="image-area">
+        <p class="placeholder">「構造プレビュー」を押すと計算前に断面構造を確認できます</p>
+      </div>
+
+      <h2>計算結果</h2>
+      <div id="result-area">
+        <p class="placeholder">「計算実行」を押すと結果がここに表示されます</p>
+      </div>
+
+      <h2>ジョブ履歴</h2>
+      <table id="job-table">
+        <thead>
+          <tr><th>ジョブID</th><th>状態</th><th>経過 [秒]</th><th>操作</th></tr>
+        </thead>
+        <tbody id="job-table-body"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

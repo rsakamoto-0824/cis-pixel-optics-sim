@@ -20,19 +20,25 @@ Python 3.12の単一環境で動かす（本プロジェクト限定のPythonバ
 # 1. 環境作成（初回のみ。condaが無ければ brew install --cask miniforge）
 conda create -y -n cis-pixel-optics -c conda-forge python=3.12 pymeep matplotlib-base
 conda activate cis-pixel-optics
+pip install -r app/requirements.txt
 
-# 2. 物理検証（フレネル解析解との比較 + メッシュ収束確認、約1分）
+# 2. アプリ起動（ローカルWeb UI）
+python -m app.main
+# ブラウザで http://localhost:8000 を開く
+# 構造プレビュー → 計算実行 → 結果（集光効率・断面図）表示、ジョブ履歴・中断に対応
+
+# 3. 物理検証（フレネル解析解との比較 + メッシュ収束確認、約1分）
 python -m tests.validate_fresnel
 
-# 3. 動作確認サンプル（2D断面、垂直入射とCRA 25°、約30秒）
+# 4. 動作確認サンプル（2D断面、垂直入射とCRA 25°、約30秒）
 python -m tests.run_sample_2d
 # 結果は jobs/sample_2d_cra00/ と jobs/sample_2d_cra25/ に出力される
 
-# 4. 任意パラメータでの計算（input.jsonの書式は engine/fdtd_worker.py を参照）
+# 5. Web UIを使わない直接計算（input.jsonの書式は engine/fdtd_worker.py を参照）
 python -m engine.fdtd_worker <ジョブフォルダ>
 ```
 
-Web UI（`python app/main.py`）は開発中。現在は計算エンジン（2Dモード）まで動作する。
+現在は2D断面モードに対応。3Dモード（真上ビュー・クロストーク定量評価）は開発中。
 
 ## 必要な環境変数
 

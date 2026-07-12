@@ -332,6 +332,34 @@ def save_fields(sim, dft_fields, coords, job_dir):
         si_top_y=coords["si_top_y"], pd_monitor_y=coords["pd_monitor_y"])
 
 
+def compute_epsilon_preview(user_params):
+    """FDTDを実行せずに構造（誘電率分布）だけを計算する（プレビュー用）。
+
+    戻り値: (epsilon2次元配列, x座標, y座標, Si上面のy座標)
+    """
+    params = merge_defaults(user_params, DEFAULT_PARAMS)
+    validate_params(params)
+    media = build_media(params)
+    structure = structure_builder.build_structure_2d(params, media)
+    coords = structure["coords"]
+
+    sim = mp.Simulation(
+        cell_size=structure["cell_size"],
+        geometry=structure["geometry"],
+        boundary_layers=structure["boundary_layers"],
+        resolution=params["resolution_pixels_per_um"])
+    sim.init_sim()
+
+    center = mp.Vector3(0, (coords["y_min"] + coords["y_max"]) / 2.0)
+    size = mp.Vector3(coords["cell_width_um"], coords["cell_height_um"])
+    epsilon = sim.get_array(center=center, size=size,
+                            component=mp.Dielectric)
+    half_width = coords["cell_width_um"] / 2.0
+    x_um = np.linspace(-half_width, half_width, epsilon.shape[0])
+    y_um = np.linspace(coords["y_min"], coords["y_max"], epsilon.shape[1])
+    return epsilon, x_um, y_um, coords["si_top_y"]
+
+
 def main():
     if len(sys.argv) != 2:
         print("使い方: python -m engine.fdtd_worker <job_dir>", file=sys.stderr)

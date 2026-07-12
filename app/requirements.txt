@@ -1,0 +1,3 @@
+# Web UI用の追加パッケージ（pymeep・matplotlibはconda側で導入済み）
+fastapi>=0.110
+uvicorn>=0.29
