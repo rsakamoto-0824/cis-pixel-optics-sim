@@ -30,10 +30,27 @@ body {
 }
 
 header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing);
+  flex-wrap: wrap;
   padding: var(--spacing) calc(var(--spacing) * 2);
   background: var(--color-panel);
   border-bottom: 1px solid var(--color-border);
 }
+
+.help-link {
+  color: var(--color-primary);
+  font-size: 0.9rem;
+  text-decoration: none;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+
+.help-link:hover { background: var(--color-background); }
 
 header h1 { margin: 0; font-size: 1.3rem; }
 .subtitle { margin: 4px 0 0; color: var(--color-text-weak); font-size: 0.85rem; }
