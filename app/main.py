@@ -21,6 +21,15 @@ app = FastAPI(title="cis-pixel-optics-sim")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
+@app.middleware("http")
+async def no_cache(request: Request, call_next):
+    # ローカルアプリは更新が頻繁なため、ブラウザに古い画面を残さない
+    # （no-cache = 毎回サーバーへ確認。変更がなければ304で軽量に済む）
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 @app.get("/")
 def index():
     return FileResponse(STATIC_DIR / "index.html")

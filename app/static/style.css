@@ -150,6 +150,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .placeholder { color: var(--color-text-weak); font-size: 0.85rem; }
 
+.field-note {
+  color: var(--color-text-weak);
+  font-size: 0.78rem;
+  margin: 4px 0 2px;
+}
+
 .result-numbers {
   display: flex;
   gap: var(--spacing);

@@ -123,25 +123,30 @@ def build_lens_prism_2d(center_x_um, base_y_um, half_width_um, height_um,
 
 
 def lens_layout_2d(params, crosstalk):
-    """2Dモードのレンズ中心位置と半幅、画素数を返す。"""
+    """2Dモードのレンズ中心位置と半幅、画素数を返す。
+
+    レンズ中心には偏心オフセット（ocl.offset_um）を加える。
+    PDや画素境界の位置は動かさず、レンズだけがずれる。
+    """
     pitch = params["pixel_pitch_um"]
     sharing = params["ocl"]["sharing"]
+    offset = params["ocl"]["offset_um"]
     if crosstalk:
-        # クロストーク評価は1画素1レンズ×3画素（中央照射）
+        # 受光内訳・クロストーク評価は1画素1レンズ×3画素（中央照射）
         num_pixels = CROSSTALK_GRID_PIXELS
-        lens_centers = [pitch * (i - (num_pixels - 1) / 2.0)
+        lens_centers = [pitch * (i - (num_pixels - 1) / 2.0) + offset
                         for i in range(num_pixels)]
         lens_half_width = pitch / 2.0
         return num_pixels, lens_centers, lens_half_width
     num_pixels = NUM_PIXELS_2D[sharing]
     if sharing == "single":
-        lens_centers = [pitch * (i - (num_pixels - 1) / 2.0)
+        lens_centers = [pitch * (i - (num_pixels - 1) / 2.0) + offset
                         for i in range(num_pixels)]
         lens_half_width = pitch / 2.0
     else:
         # shared2/shared4は2画素分の幅を持つ1枚のレンズ
         # （shared4の2Dモードは2×2レンズ中央断面の近似）
-        lens_centers = [0.0]
+        lens_centers = [offset]
         lens_half_width = pitch
     return num_pixels, lens_centers, lens_half_width
 
@@ -197,23 +202,37 @@ def build_structure_2d(params, media):
             center=mp.Vector3(0, to_cell_y((layer_bottom + layer_top) / 2.0)),
             material=media[name]))
 
+    # 周期境界ではセル外にはみ出した形状の周期像が自動では作られないため、
+    # オフセット指定時は±セル幅にずらした複製を置いて周期像を再現する
+    has_offset = (params["ocl"]["offset_um"] != 0.0
+                  or params["dti"]["offset_um"] != 0.0)
+    if not crosstalk and has_offset:
+        wrap_shifts = [-cell_width, 0.0, cell_width]
+    else:
+        wrap_shifts = [0.0]
+
     if params["ocl"]["enabled"]:
         for center_x in lens_centers:
-            geometry.append(build_lens_prism_2d(
-                center_x, to_cell_y(heights["lens_base"]), lens_half_width,
-                params["ocl"]["height_um"], params["ocl"]["shape"],
-                params["ocl"]["superellipse_exponent"], media["ocl"]))
+            for shift in wrap_shifts:
+                geometry.append(build_lens_prism_2d(
+                    center_x + shift, to_cell_y(heights["lens_base"]),
+                    lens_half_width, params["ocl"]["height_um"],
+                    params["ocl"]["shape"],
+                    params["ocl"]["superellipse_exponent"], media["ocl"]))
 
     # DTI: Si上面から指定深さまでの縦溝。Siより後に置いてSiを上書きする
+    # 位置オフセット（dti.offset_um）でDTI格子だけを横にずらせる
     dti = params["dti"]
     if dti["enabled"] and dti["depth_um"] > 0.0:
         boundary_xs = pixel_boundary_positions_um(
             pitch, num_pixels, dti["placement"], sharing)
         for x in boundary_xs:
-            geometry.append(mp.Block(
-                size=mp.Vector3(dti["width_um"], dti["depth_um"], mp.inf),
-                center=mp.Vector3(x, to_cell_y(-dti["depth_um"] / 2.0)),
-                material=media["dti"]))
+            for shift in wrap_shifts:
+                geometry.append(mp.Block(
+                    size=mp.Vector3(dti["width_um"], dti["depth_um"], mp.inf),
+                    center=mp.Vector3(x + dti["offset_um"] + shift,
+                                      to_cell_y(-dti["depth_um"] / 2.0)),
+                    material=media["dti"]))
 
     pixel_centers = [pitch * (i - (num_pixels - 1) / 2.0)
                      for i in range(num_pixels)]

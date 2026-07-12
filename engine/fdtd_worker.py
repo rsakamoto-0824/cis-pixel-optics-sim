@@ -60,6 +60,8 @@ SWEEP_PARAMETER_LABELS = {
     "pixel_pitch_um": "画素サイズ [µm]",
     "ocl.height_um": "OCL高さ [µm]",
     "ocl.superellipse_exponent": "スーパー楕円指数",
+    "ocl.offset_um": "OCL偏心 [µm]",
+    "dti.offset_um": "DTIオフセット [µm]",
     "layers.color_filter_um": "カラーフィルタ膜厚 [µm]",
 }
 
@@ -73,6 +75,7 @@ DEFAULT_PARAMS = {
         "shape": "spherical_cap",  # spherical_cap / superellipse
         "superellipse_exponent": 2.5,
         "sharing": "single",       # single / shared2 / shared4
+        "offset_um": 0.0,  # レンズ中心の偏心（+X方向、PD・DTIは動かない）
     },
     "layers": {
         "planarization_um": 0.1,
@@ -92,6 +95,7 @@ DEFAULT_PARAMS = {
         "width_um": 0.1,
         "depth_um": 2.0,
         "placement": "all",  # all / shared_only
+        "offset_um": 0.0,  # DTI格子の位置ずれ（+X方向、PD・OCLは動かない）
     },
     "source": {
         "wavelength_nm": 550.0,
@@ -156,7 +160,17 @@ def validate_params(params):
         if params["ocl"]["sharing"] not in ("single", "shared2", "shared4"):
             errors.append(f"未知のOCL共有方式です: {params['ocl']['sharing']}")
     if params["crosstalk"] and params["ocl"]["sharing"] != "single":
-        errors.append("クロストーク評価は現在1画素1レンズのみ対応しています")
+        errors.append("受光内訳・クロストーク評価は現在1画素1レンズのみ対応しています")
+
+    max_offset = params["pixel_pitch_um"] / 2.0
+    for offset, label in ((params["ocl"]["offset_um"], "OCL偏心"),
+                          (params["dti"]["offset_um"], "DTIオフセット")):
+        if abs(offset) > max_offset:
+            errors.append(
+                f"{label} {offset} µm は画素サイズの半分"
+                f"（±{max_offset} µm）以内にしてください")
+        if offset != 0.0 and params["mode"] == "3d":
+            errors.append(f"{label}は現在2Dモードのみ対応しています")
     if params["dti"]["enabled"]:
         check_range(params["dti"]["width_um"], "dti_width_um", "DTI幅 [µm]")
         if not (0.0 <= params["dti"]["depth_um"] <= params["layers"]["si_um"]):

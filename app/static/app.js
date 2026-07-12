@@ -32,6 +32,7 @@ function collectParams() {
   // 計算モード欄は廃止し、常に2D断面モードで計算する（2026-07-12 ユーザー指示）
   return {
     mode: "2d",
+    crosstalk: document.getElementById("breakdown-enabled").checked,
     sweep: collectSweep(),
     pixel_pitch_um: numberValue("pixel-pitch"),
     ocl: {
@@ -40,6 +41,7 @@ function collectParams() {
       shape: document.getElementById("ocl-shape").value,
       superellipse_exponent: numberValue("ocl-superellipse-exponent"),
       sharing: document.getElementById("ocl-sharing").value,
+      offset_um: numberValue("ocl-offset"),
     },
     layers: {
       planarization_um: numberValue("layer-planarization"),
@@ -52,6 +54,7 @@ function collectParams() {
       width_um: numberValue("dti-width"),
       depth_um: numberValue("dti-depth"),
       placement: document.getElementById("dti-placement").value,
+      offset_um: numberValue("dti-offset"),
     },
     source: {
       wavelength_nm: numberValue("wavelength"),
@@ -166,8 +169,16 @@ function renderResult(jobId, result) {
 
   const efficiencyPercent =
     (result.collection_efficiency_total * 100).toFixed(1);
-  const perPixel = result.collection_efficiency_per_pixel
-    .map((value, index) => `画素${index + 1}: ${(value * 100).toFixed(1)}%`)
+  // 受光内訳（3画素・中央照射）のときは位置が分かる名前で表示する
+  const perPixelValues = result.collection_efficiency_per_pixel;
+  const isBreakdown3 = (result.crosstalk_total !== undefined
+                        && perPixelValues.length === 3);
+  const pixelName = (index) => isBreakdown3
+    ? ["左隣", "中央", "右隣"][index]
+    : `画素${index + 1}`;
+  const perPixel = perPixelValues
+    .map((value, index) =>
+      `${pixelName(index)}: ${(value * 100).toFixed(1)}%`)
     .join(" / ");
 
   let metrics = `
