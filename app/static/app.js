@@ -29,13 +29,9 @@ function collectSweep() {
 }
 
 function collectParams() {
-  const viewDepthText = document.getElementById("view-depth").value;
+  // 計算モード欄は廃止し、常に2D断面モードで計算する（2026-07-12 ユーザー指示）
   return {
-    mode: document.getElementById("calc-mode").value,
-    crosstalk: document.getElementById("crosstalk-enabled").checked,
-    view: {
-      depth_um: viewDepthText === "" ? null : parseFloat(viewDepthText),
-    },
+    mode: "2d",
     sweep: collectSweep(),
     pixel_pitch_um: numberValue("pixel-pitch"),
     ocl: {

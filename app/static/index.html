@@ -8,8 +8,12 @@
 </head>
 <body>
   <header>
-    <h1>CIS画素光学シミュレーター</h1>
-    <p class="subtitle">FDTD法（Meep）による集光特性評価 — 2D断面モード</p>
+    <div>
+      <h1>CIS画素光学シミュレーター</h1>
+      <p class="subtitle">FDTD法（Meep）による集光特性評価 — 2D断面モード</p>
+    </div>
+    <a href="/static/help.html" target="_blank" rel="noopener"
+       class="help-link">ヘルプ（用語解説）</a>
   </header>
 
   <main>
@@ -20,7 +24,7 @@
           <legend>画素</legend>
           <label>画素サイズ [µm]
             <input type="number" id="pixel-pitch" value="1.0"
-                   min="0.5" max="2.5" step="0.05" required>
+                   min="0.5" max="2.5" step="any" required>
           </label>
         </fieldset>
 
@@ -31,7 +35,7 @@
           </label>
           <label>高さ [µm]
             <input type="number" id="ocl-height" value="0.5"
-                   min="0.1" max="1.5" step="0.05">
+                   min="0.1" max="1.5" step="any">
           </label>
           <label>レンズ形状
             <select id="ocl-shape">
@@ -41,7 +45,7 @@
           </label>
           <label>スーパー楕円指数
             <input type="number" id="ocl-superellipse-exponent" value="2.5"
-                   min="1.5" max="8" step="0.1">
+                   min="1.5" max="8" step="any">
           </label>
           <label>共有方式
             <select id="ocl-sharing">
@@ -56,19 +60,19 @@
           <legend>層構造（膜厚 [µm]）</legend>
           <label>平坦化膜
             <input type="number" id="layer-planarization" value="0.1"
-                   min="0" max="2" step="0.05">
+                   min="0" max="2" step="any">
           </label>
           <label>カラーフィルタ
             <input type="number" id="layer-color-filter" value="0.6"
-                   min="0" max="2" step="0.05">
+                   min="0" max="2" step="any">
           </label>
           <label>反射防止膜・酸化膜
             <input type="number" id="layer-ar" value="0.1"
-                   min="0" max="1" step="0.01">
+                   min="0" max="1" step="any">
           </label>
           <label>Si厚
             <input type="number" id="layer-si" value="3.0"
-                   min="1" max="10" step="0.5">
+                   min="1" max="10" step="any">
           </label>
         </fieldset>
 
@@ -79,35 +83,17 @@
           </label>
           <label>幅 [µm]
             <input type="number" id="dti-width" value="0.1"
-                   min="0.05" max="0.3" step="0.01">
+                   min="0.05" max="0.3" step="any">
           </label>
           <label>深さ [µm]
             <input type="number" id="dti-depth" value="2.0"
-                   min="0" max="10" step="0.1">
+                   min="0" max="10" step="any">
           </label>
           <label>配置
             <select id="dti-placement">
               <option value="all" selected>全画素境界</option>
               <option value="shared_only">共有単位境界のみ</option>
             </select>
-          </label>
-        </fieldset>
-
-        <fieldset>
-          <legend>計算モード</legend>
-          <label>モード
-            <select id="calc-mode">
-              <option value="2d" selected>2D断面（数秒〜数分）</option>
-              <option value="3d">3D（数十分）</option>
-            </select>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="crosstalk-enabled">
-            クロストーク評価（中央画素のみ照射）
-          </label>
-          <label>真上ビュー深さ [µm]（3D、空欄=PD面）
-            <input type="number" id="view-depth" min="0" max="10" step="0.1"
-                   placeholder="PD面と同じ">
           </label>
         </fieldset>
 
@@ -135,19 +121,19 @@
           <legend>光・計算条件</legend>
           <label>波長 [nm]
             <input type="number" id="wavelength" value="550"
-                   min="400" max="700" step="10" required>
+                   min="400" max="700" step="any" required>
           </label>
           <label>入射角 CRA [°]
             <input type="number" id="incident-angle" value="0"
-                   min="0" max="35" step="1" required>
+                   min="0" max="35" step="any" required>
           </label>
           <label>PD面の深さ（Si上面から）[µm]
             <input type="number" id="pd-depth" value="0.5"
-                   min="0.1" max="5" step="0.1">
+                   min="0.1" max="5" step="any">
           </label>
           <label>メッシュ解像度 [セル/µm]
             <input type="number" id="resolution" value="100"
-                   min="50" max="400" step="10">
+                   min="50" max="400" step="any">
           </label>
         </fieldset>
 

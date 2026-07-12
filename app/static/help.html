@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>用語解説 — CIS画素光学シミュレーター</title>
+  <style>
+    :root {
+      --color-background: #f5f7fa;
+      --color-panel: #ffffff;
+      --color-border: #d4dae3;
+      --color-text: #24292f;
+      --color-text-weak: #6b7280;
+      --color-primary: #1f6feb;
+      --toc-width: 260px;
+      --spacing: 16px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+      background: var(--color-background);
+      color: var(--color-text);
+      line-height: 1.8;
+    }
+    .layout { display: flex; min-height: 100vh; }
+    nav {
+      width: var(--toc-width);
+      flex-shrink: 0;
+      background: var(--color-panel);
+      border-right: 1px solid var(--color-border);
+      padding: var(--spacing);
+      position: sticky;
+      top: 0;
+      align-self: flex-start;
+      max-height: 100vh;
+      overflow-y: auto;
+    }
+    nav h2 { font-size: 1rem; margin: 0 0 8px; }
+    nav ul { list-style: none; margin: 0; padding: 0; }
+    nav li { margin: 4px 0; }
+    nav a {
+      color: var(--color-primary);
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    nav a:hover { text-decoration: underline; }
+    nav .toc-sub { padding-left: 14px; }
+    main {
+      flex: 1;
+      max-width: 860px;
+      padding: calc(var(--spacing) * 2);
+    }
+    h1 { font-size: 1.5rem; margin-top: 0; }
+    section {
+      background: var(--color-panel);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      padding: 8px 24px 16px;
+      margin-bottom: var(--spacing);
+    }
+    h2 {
+      font-size: 1.15rem;
+      border-bottom: 1px solid var(--color-border);
+      padding-bottom: 6px;
+    }
+    dt { font-weight: 600; margin-top: 14px; }
+    dd { margin: 4px 0 0 0; color: var(--color-text); }
+    .note { color: var(--color-text-weak); font-size: 0.9rem; }
+    .back-to-top {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      background: var(--color-primary);
+      color: #fff;
+      text-decoration: none;
+      padding: 10px 14px;
+      border-radius: 24px;
+      font-size: 0.9rem;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+    /* 画面幅が狭いときは目次を上部に置き、本文を読みやすく保つ */
+    @media (max-width: 800px) {
+      .layout { flex-direction: column; }
+      nav {
+        width: 100%;
+        position: static;
+        max-height: none;
+        border-right: none;
+        border-bottom: 1px solid var(--color-border);
+      }
+      main { padding: var(--spacing); }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <h2>目次</h2>
+    <ul>
+      <li><a href="#pixel">1. 画素の構造</a></li>
+      <li><a href="#ocl">2. On Chip Lens（OCL）</a></li>
+      <li><a href="#dti">3. DTI（画素間分離）</a></li>
+      <li><a href="#light">4. 光の条件</a></li>
+      <li><a href="#calc">5. 計算の設定</a></li>
+      <li><a href="#result">6. 結果の見方</a></li>
+      <li><a href="#sweep">7. パラメータスイープ</a></li>
+    </ul>
+  </nav>
+
+  <main id="top">
+    <h1>用語解説</h1>
+    <p>CIS画素光学シミュレーターの画面に出てくる用語を説明します。
+      左の目次から各章へ移動できます。</p>
+
+    <section id="pixel">
+      <h2>1. 画素の構造</h2>
+      <dl>
+        <dt>画素サイズ（ピッチ）[µm]</dt>
+        <dd>1つの画素の幅です。隣の画素の中心までの距離（ピッチ）を指します。
+          本アプリでは0.5〜2.5 µmの範囲で、2.44のような細かい値も入力できます。</dd>
+        <dt>BSI（裏面照射）</dt>
+        <dd>光を配線層と反対側（裏面）から取り込むイメージセンサーの構造です。
+          本アプリはBSI構造のみを対象にしています。</dd>
+        <dt>平坦化膜</dt>
+        <dd>レンズの下にある、表面をなめらかにするための透明な膜です。</dd>
+        <dt>カラーフィルタ</dt>
+        <dd>特定の色（波長）の光だけを通すための膜です。本アプリでは吸収は考慮せず、
+          屈折率のみをモデル化しています。</dd>
+        <dt>反射防止膜・埋め込み酸化膜</dt>
+        <dd>Si表面での反射を抑えるための薄い膜です。厚さを0にすると省略できます。</dd>
+        <dt>Si厚 [µm]</dt>
+        <dd>光を電気に変えるシリコン層の厚さです。</dd>
+        <dt>PD面の深さ [µm]</dt>
+        <dd>PD（フォトダイオード＝光を受け取る領域）の上面が、Siの表面から
+          どれだけ深い位置にあるかです。集光効率はこの面を通過した光の割合で計算します。</dd>
+        <dt>屈折率</dt>
+        <dd>光がその材料の中でどれだけ曲がる（遅くなる）かを表す数値です。
+          各層の初期値はアプリに内蔵されており、上書きも可能です（API経由）。</dd>
+      </dl>
+    </section>
+
+    <section id="ocl">
+      <h2>2. On Chip Lens（OCL）</h2>
+      <dl>
+        <dt>OCL（オンチップレンズ）</dt>
+        <dd>画素の一番上に載っている小さなレンズです。光を画素の中心（PD）へ集めます。</dd>
+        <dt>高さ [µm]</dt>
+        <dd>レンズの盛り上がりの高さです。高いほど光を強く曲げます。</dd>
+        <dt>球面キャップ</dt>
+        <dd>球の一部を切り取ったような、もっとも標準的なレンズ形状です。</dd>
+        <dt>スーパー楕円（とスーパー楕円指数）</dt>
+        <dd>球面よりも角張った形を作れるレンズ形状です。指数が大きいほど
+          「上が平らで裾が急」な形になります（2で通常の楕円と同じ）。</dd>
+        <dt>共有方式</dt>
+        <dd>1つのレンズを何画素で共有するかです。「2画素共有」は位相差検出用、
+          「4画素共有（2×2）」はQuad配列を想定しています。共有レンズでは光が
+          画素の境界付近に集まるため、DTIの配置が結果に大きく影響します。
+          <span class="note">※4画素共有はレンズ中央の断面を2画素共有と同じ形で
+          近似して計算します。</span></dd>
+      </dl>
+    </section>
+
+    <section id="dti">
+      <h2>3. DTI（画素間分離）</h2>
+      <dl>
+        <dt>DTI（Deep Trench Isolation）</dt>
+        <dd>隣の画素へ光が漏れるのを防ぐため、Siに掘った深い溝です。
+          画素の境界に沿って配置され、内部は透明な材料（標準ではSiO2）で
+          埋められています。</dd>
+        <dt>幅 [µm]・深さ [µm]</dt>
+        <dd>溝の幅と、Si表面から掘り下げる深さです。深さをSi厚と同じにすると
+          「フルDTI（貫通型）」になります。</dd>
+        <dt>配置</dt>
+        <dd>「全画素境界」はすべての画素の境界に、「共有単位境界のみ」は
+          共有レンズのまとまり（2画素/4画素）の外周だけに溝を作ります。</dd>
+        <dt>充填材屈折率</dt>
+        <dd>溝を埋める材料の屈折率です。初期値はSiO2相当（約1.46）です。</dd>
+      </dl>
+    </section>
+
+    <section id="light">
+      <h2>4. 光の条件</h2>
+      <dl>
+        <dt>波長 [nm]</dt>
+        <dd>光の色に対応する長さです。青≈450、緑≈550、赤≈630 nmが目安で、
+          400〜700 nmを指定できます。</dd>
+        <dt>入射角 CRA [°]</dt>
+        <dd>光が真上からどれだけ傾いて入ってくるかの角度です
+          （CRA = Chief Ray Angle、主光線角度）。センサーの端の画素ほど
+          大きな角度で光が入るため、CRAを振って効率の変化を調べます。</dd>
+      </dl>
+    </section>
+
+    <section id="calc">
+      <h2>5. 計算の設定</h2>
+      <dl>
+        <dt>FDTD法 / Meep</dt>
+        <dd>光を波として厳密に計算する方法（FDTD法）と、それを実行する
+          オープンソースの計算エンジン（Meep）です。計算はすべて
+          このPCの中だけで行われ、データが外部に送られることはありません。</dd>
+        <dt>メッシュ解像度 [セル/µm]</dt>
+        <dd>構造を計算用に細かく区切る細かさです。大きいほど正確ですが
+          計算時間が伸びます。標準の100は「1 µmを100分割（10 nm刻み）」の意味です。
+          短い波長（青）では画面の注意表示に従って上げてください。</dd>
+        <dt>構造プレビュー</dt>
+        <dd>計算を始める前に、入力した構造の断面図を確認できる機能です。
+          形の間違い（レンズの高さや膜厚の入れ間違いなど）を防げます。</dd>
+        <dt>ジョブ</dt>
+        <dd>1回分の計算の単位です。実行中のジョブは履歴から中断できます。</dd>
+      </dl>
+    </section>
+
+    <section id="result">
+      <h2>6. 結果の見方</h2>
+      <dl>
+        <dt>集光効率</dt>
+        <dd>入ってきた光のうち、PD面まで届いた割合です。100%に近いほど
+          光を無駄なく取り込めています。反射や吸収、隣への漏れで減ります。</dd>
+        <dt>画素ごとの内訳</dt>
+        <dd>計算セルに複数の画素が含まれる場合（共有レンズなど）の、
+          画素ごとの集光効率です。</dd>
+        <dt>クロストーク</dt>
+        <dd>中央の画素に入るはずの光が、隣の画素へ漏れてしまった割合です。
+          小さいほど混色が少なく良好です。</dd>
+        <dt>|E|² 断面分布</dt>
+        <dd>光の強さ（電場強度）を断面図の色で表したものです。明るい場所ほど
+          光が強く、レンズによる集光の様子が見えます。図の縦軸はSiの表面を
+          0とした深さ方向の位置です。</dd>
+      </dl>
+    </section>
+
+    <section id="sweep">
+      <h2>7. パラメータスイープ</h2>
+      <dl>
+        <dt>スイープ</dt>
+        <dd>1つのパラメータ（入射角や波長など）を複数の値で連続計算し、
+          傾向をグラフと表で確認する機能です。値はカンマ区切りで
+          自由に指定できます（例: 0, 5, 12.5, 20）。</dd>
+        <dt>CSVダウンロード</dt>
+        <dd>スイープ結果の一覧表をCSVファイルとして保存できます。
+          Excelなどでそのまま開けます。</dd>
+      </dl>
+    </section>
+  </main>
+</div>
+
+<a href="#top" class="back-to-top">▲ トップへ戻る</a>
+</body>
+</html>
