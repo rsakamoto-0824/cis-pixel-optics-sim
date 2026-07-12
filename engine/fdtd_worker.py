@@ -48,6 +48,7 @@ HEAVY_3D_VOXEL_COUNT = 5.0e6
 PARAMETER_LIMITS = {
     "pixel_pitch_um": (0.5, 2.5),
     "ocl_height_um": (0.1, 1.5),
+    "ocl_base_um": (0.0, 2.0),
     "wavelength_nm": (400.0, 700.0),
     "incident_angle_deg": (0.0, 35.0),
     "dti_width_um": (0.05, 0.3),
@@ -60,6 +61,7 @@ SWEEP_PARAMETER_LABELS = {
     "pixel_pitch_um": "画素サイズ [µm]",
     "ocl.height_um": "OCL高さ [µm]",
     "ocl.superellipse_exponent": "スーパー楕円指数",
+    "ocl.base_um": "OCLベース層厚 [µm]",
     "ocl.offset_um": "OCL偏心 [µm]",
     "dti.offset_um": "DTIオフセット [µm]",
     "layers.color_filter_um": "カラーフィルタ膜厚 [µm]",
@@ -76,6 +78,9 @@ DEFAULT_PARAMS = {
         "superellipse_exponent": 2.5,
         "sharing": "single",       # single / shared2 / shared4
         "offset_um": 0.0,  # レンズ中心の偏心（+X方向、PD・DTIは動かない）
+        # レンズ底面の下に残る同一樹脂の平坦層（光路長の調整用）。
+        # レンズ最低部からカラーフィルタまでの厚み = base_um + 平坦化膜厚
+        "base_um": 0.0,
     },
     "layers": {
         "planarization_um": 0.1,
@@ -155,6 +160,8 @@ def validate_params(params):
                 "入射角 [deg]")
     if params["ocl"]["enabled"]:
         check_range(params["ocl"]["height_um"], "ocl_height_um", "OCL高さ [µm]")
+        check_range(params["ocl"]["base_um"], "ocl_base_um",
+                    "OCLベース層厚 [µm]")
         if params["ocl"]["shape"] not in ("spherical_cap", "superellipse"):
             errors.append(f"未知のレンズ形状です: {params['ocl']['shape']}")
         if params["ocl"]["sharing"] not in ("single", "shared2", "shared4"):
