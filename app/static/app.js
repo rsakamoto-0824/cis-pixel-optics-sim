@@ -46,6 +46,9 @@ function collectParams() {
       gap_height_left_um: numberValue("ocl-gap-left"),
       gap_height_right_um: numberValue("ocl-gap-right"),
     },
+    materials: {
+      ocl_n: numberValue("ocl-n"),
+    },
     layers: {
       planarization_um: numberValue("layer-planarization"),
       color_filter_um: numberValue("layer-color-filter"),

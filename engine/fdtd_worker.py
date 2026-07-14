@@ -49,6 +49,7 @@ PARAMETER_LIMITS = {
     "pixel_pitch_um": (0.5, 2.5),
     "ocl_height_um": (0.1, 1.5),
     "ocl_base_um": (0.0, 2.0),
+    "ocl_n": (1.2, 2.5),
     "wavelength_nm": (400.0, 700.0),
     "incident_angle_deg": (0.0, 35.0),
     "dti_width_um": (0.05, 0.3),
@@ -65,6 +66,7 @@ SWEEP_PARAMETER_LABELS = {
     "ocl.offset_um": "OCL偏心 [µm]",
     "ocl.gap_height_left_um": "OCL左ギャップ高さ [µm]",
     "ocl.gap_height_right_um": "OCL右ギャップ高さ [µm]",
+    "materials.ocl_n": "OCL屈折率",
     "dti.offset_um": "DTIオフセット [µm]",
     "layers.color_filter_um": "カラーフィルタ膜厚 [µm]",
 }
@@ -168,6 +170,7 @@ def validate_params(params):
         check_range(params["ocl"]["height_um"], "ocl_height_um", "OCL高さ [µm]")
         check_range(params["ocl"]["base_um"], "ocl_base_um",
                     "OCLベース層厚 [µm]")
+        check_range(params["materials"]["ocl_n"], "ocl_n", "OCL屈折率")
         if params["ocl"]["shape"] not in ("spherical_cap", "superellipse"):
             errors.append(f"未知のレンズ形状です: {params['ocl']['shape']}")
         if params["ocl"]["sharing"] not in ("single", "shared2", "shared4"):
