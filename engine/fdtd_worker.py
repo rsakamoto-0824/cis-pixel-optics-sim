@@ -63,6 +63,8 @@ SWEEP_PARAMETER_LABELS = {
     "ocl.superellipse_exponent": "スーパー楕円指数",
     "ocl.base_um": "OCLベース層厚 [µm]",
     "ocl.offset_um": "OCL偏心 [µm]",
+    "ocl.gap_height_left_um": "OCL左ギャップ高さ [µm]",
+    "ocl.gap_height_right_um": "OCL右ギャップ高さ [µm]",
     "dti.offset_um": "DTIオフセット [µm]",
     "layers.color_filter_um": "カラーフィルタ膜厚 [µm]",
 }
@@ -77,10 +79,14 @@ DEFAULT_PARAMS = {
         "shape": "spherical_cap",  # spherical_cap / superellipse
         "superellipse_exponent": 2.5,
         "sharing": "single",       # single / shared2 / shared4
-        "offset_um": 0.0,  # レンズ中心の偏心（+X方向、PD・DTIは動かない）
+        "offset_um": 0.0,  # 偏心: フットプリント固定のまま頂点位置をずらす
         # レンズ底面の下に残る同一樹脂の平坦層（光路長の調整用）。
         # レンズ最低部からカラーフィルタまでの厚み = base_um + 平坦化膜厚
         "base_um": 0.0,
+        # レンズ端（ギャップ部分）の高さ。左右で違う値にすると
+        # レンズが傾いた状態の集光を評価できる
+        "gap_height_left_um": 0.0,
+        "gap_height_right_um": 0.0,
     },
     "layers": {
         "planarization_um": 0.1,
@@ -169,6 +175,20 @@ def validate_params(params):
     if (params["crosstalk"] and params["mode"] == "3d"
             and params["ocl"]["sharing"] != "single"):
         errors.append("3Dの受光内訳・クロストーク評価は1画素1レンズのみ対応しています")
+
+    # ギャップ高さ（レンズ端の高さ）は頂点より低いことが前提
+    if params["ocl"]["enabled"]:
+        for gap, side in ((params["ocl"]["gap_height_left_um"], "左"),
+                          (params["ocl"]["gap_height_right_um"], "右")):
+            if gap < 0.0:
+                errors.append(f"OCL{side}ギャップ高さは0以上にしてください")
+            elif gap >= params["ocl"]["height_um"]:
+                errors.append(
+                    f"OCL{side}ギャップ高さ {gap} µm はレンズ高さ "
+                    f"{params['ocl']['height_um']} µm 未満にしてください")
+            if gap != 0.0 and params["mode"] == "3d":
+                errors.append(
+                    f"OCL{side}ギャップ高さは現在2Dモードのみ対応しています")
 
     # OCL偏心はフットプリント固定で頂点だけをずらすため、レンズ半幅未満に限る
     ocl_offset = params["ocl"]["offset_um"]
