@@ -170,13 +170,25 @@ def validate_params(params):
             and params["ocl"]["sharing"] != "single"):
         errors.append("3Dの受光内訳・クロストーク評価は1画素1レンズのみ対応しています")
 
-    max_offset = params["pixel_pitch_um"] / 2.0
-    for offset, label in ((params["ocl"]["offset_um"], "OCL偏心"),
-                          (params["dti"]["offset_um"], "DTIオフセット")):
-        if abs(offset) > max_offset:
-            errors.append(
-                f"{label} {offset} µm は画素サイズの半分"
-                f"（±{max_offset} µm）以内にしてください")
+    # OCL偏心はフットプリント固定で頂点だけをずらすため、レンズ半幅未満に限る
+    ocl_offset = params["ocl"]["offset_um"]
+    lens_half_width = (params["pixel_pitch_um"] / 2.0
+                       if params["ocl"]["sharing"] == "single"
+                       else params["pixel_pitch_um"])
+    if abs(ocl_offset) >= lens_half_width and params["ocl"]["enabled"]:
+        errors.append(
+            f"OCL偏心 {ocl_offset} µm はレンズ半幅"
+            f"（±{lens_half_width} µm）未満にしてください")
+
+    dti_offset = params["dti"]["offset_um"]
+    max_dti_offset = params["pixel_pitch_um"] / 2.0
+    if abs(dti_offset) > max_dti_offset:
+        errors.append(
+            f"DTIオフセット {dti_offset} µm は画素サイズの半分"
+            f"（±{max_dti_offset} µm）以内にしてください")
+
+    for offset, label in ((ocl_offset, "OCL偏心"),
+                          (dti_offset, "DTIオフセット")):
         if offset != 0.0 and params["mode"] == "3d":
             errors.append(f"{label}は現在2Dモードのみ対応しています")
     if params["dti"]["enabled"]:
