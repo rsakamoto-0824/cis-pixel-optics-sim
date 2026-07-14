@@ -61,6 +61,17 @@
           <p class="field-note">レンズの端（フットプリント）は画素に固定した
             まま、頂点（楕円の中心）の位置だけを横にずらします。左右で裾の
             緩急が変わる非対称な形になります。</p>
+          <label>左ギャップ高さ [µm]
+            <input type="number" id="ocl-gap-left" value="0"
+                   min="0" max="1.5" step="any">
+          </label>
+          <label>右ギャップ高さ [µm]
+            <input type="number" id="ocl-gap-right" value="0"
+                   min="0" max="1.5" step="any">
+          </label>
+          <p class="field-note">レンズ端（隣のレンズとのギャップ部分）の
+            高さです。左右で違う値にすると、レンズが傾いた状態の集光を
+            評価できます（レンズ高さ未満で指定）。</p>
           <label>ベース層厚 [µm]
             <input type="number" id="ocl-base" value="0"
                    min="0" max="2" step="any">
@@ -141,6 +152,8 @@
               <option value="ocl.superellipse_exponent">スーパー楕円指数</option>
               <option value="ocl.base_um">OCLベース層厚 [µm]</option>
               <option value="ocl.offset_um">OCL偏心 [µm]</option>
+              <option value="ocl.gap_height_left_um">OCL左ギャップ高さ [µm]</option>
+              <option value="ocl.gap_height_right_um">OCL右ギャップ高さ [µm]</option>
               <option value="dti.offset_um">DTIオフセット [µm]</option>
               <option value="layers.color_filter_um">カラーフィルタ膜厚 [µm]</option>
             </select>

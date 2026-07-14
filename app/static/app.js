@@ -43,6 +43,8 @@ function collectParams() {
       sharing: document.getElementById("ocl-sharing").value,
       offset_um: numberValue("ocl-offset"),
       base_um: numberValue("ocl-base"),
+      gap_height_left_um: numberValue("ocl-gap-left"),
+      gap_height_right_um: numberValue("ocl-gap-right"),
     },
     layers: {
       planarization_um: numberValue("layer-planarization"),

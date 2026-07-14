@@ -84,22 +84,28 @@ def lens_profile_height_um(x_local_um, half_width_um, height_um, shape,
 
 def lens_profile_height_decentered(x_local_um, half_width_um, height_um,
                                    shape, superellipse_exponent,
-                                   apex_offset_um):
-    """頂点位置を横にずらした非対称レンズの高さを返す（偏心レンズ）。
+                                   apex_offset_um, gap_height_left_um=0.0,
+                                   gap_height_right_um=0.0):
+    """偏心・ギャップ高さに対応した非対称レンズの高さを返す。
 
-    フットプリント（底面の両端 ±half_width）は固定のまま、頂点だけが
-    apex_offset_um の位置に動く。頂点の左右をそれぞれ別の半幅を持つ
-    プロファイルでつなぐため、片側の裾が緩く、反対側が急になる。
+    - フットプリント（底面の両端 ±half_width）は固定のまま、頂点だけが
+      apex_offset_um の位置に動く（偏心）
+    - レンズ端の高さを左右それぞれ gap_height_*_um に持ち上げる
+      （左右で違う値にするとレンズが傾いた状態を表せる）
+    頂点の左右を「端の高さ→頂点」をつなぐ別々のプロファイルで構成する。
     """
     if x_local_um >= apex_offset_um:
         side_half_width = half_width_um - apex_offset_um
+        edge_height = gap_height_right_um
     else:
         side_half_width = half_width_um + apex_offset_um
+        edge_height = gap_height_left_um
     if side_half_width <= 0.0:
-        return 0.0
-    return lens_profile_height_um(x_local_um - apex_offset_um,
-                                  side_half_width, height_um, shape,
-                                  superellipse_exponent)
+        return edge_height
+    curve_height = height_um - edge_height
+    return edge_height + lens_profile_height_um(
+        x_local_um - apex_offset_um, side_half_width, curve_height, shape,
+        superellipse_exponent)
 
 
 def lens_contour_scale(z_from_base_um, half_width_um, height_um, shape,
@@ -147,18 +153,26 @@ def pixel_boundary_positions_um(pixel_pitch_um, num_pixels, placement,
 
 def build_lens_prism_2d(center_x_um, base_y_um, half_width_um, height_um,
                         shape, superellipse_exponent, medium,
-                        apex_offset_um=0.0):
+                        apex_offset_um=0.0, gap_height_left_um=0.0,
+                        gap_height_right_um=0.0):
     """レンズ断面ポリゴンからMeepのPrism（2D多角形）を作る。
 
     apex_offset_um は偏心量（フットプリント固定のまま頂点位置をずらす）。
+    gap_height_*_um はレンズ端（ギャップ部分）の高さ。
     """
     vertices = []
+    # 端の高さが0でないときは、側面を垂直に底面まで下ろす頂点を足す
+    if gap_height_left_um > 0.0:
+        vertices.append(mp.Vector3(center_x_um - half_width_um, base_y_um, 0))
     for i in range(LENS_POLYGON_POINTS + 1):
         x_local = -half_width_um + (2.0 * half_width_um) * i / LENS_POLYGON_POINTS
         y = lens_profile_height_decentered(
             x_local, half_width_um, height_um, shape,
-            superellipse_exponent, apex_offset_um)
+            superellipse_exponent, apex_offset_um,
+            gap_height_left_um, gap_height_right_um)
         vertices.append(mp.Vector3(center_x_um + x_local, base_y_um + y, 0))
+    if gap_height_right_um > 0.0:
+        vertices.append(mp.Vector3(center_x_um + half_width_um, base_y_um, 0))
     # 底面の直線で閉じる（終点→始点は自動で結ばれる）
     return mp.Prism(vertices, height=mp.inf, axis=mp.Vector3(0, 0, 1),
                     material=medium)
@@ -263,7 +277,9 @@ def build_structure_2d(params, media):
                 lens_half_width, params["ocl"]["height_um"],
                 params["ocl"]["shape"],
                 params["ocl"]["superellipse_exponent"], media["ocl"],
-                apex_offset_um=params["ocl"]["offset_um"]))
+                apex_offset_um=params["ocl"]["offset_um"],
+                gap_height_left_um=params["ocl"]["gap_height_left_um"],
+                gap_height_right_um=params["ocl"]["gap_height_right_um"]))
 
     # DTI: Si上面から指定深さまでの縦溝。Siより後に置いてSiを上書きする
     # 位置オフセット（dti.offset_um）でDTI格子だけを横にずらせる
