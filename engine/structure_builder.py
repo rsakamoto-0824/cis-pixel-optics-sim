@@ -82,6 +82,26 @@ def lens_profile_height_um(x_local_um, half_width_um, height_um, shape,
     raise ValueError(f"未知のレンズ形状です: {shape}")
 
 
+def lens_profile_height_decentered(x_local_um, half_width_um, height_um,
+                                   shape, superellipse_exponent,
+                                   apex_offset_um):
+    """頂点位置を横にずらした非対称レンズの高さを返す（偏心レンズ）。
+
+    フットプリント（底面の両端 ±half_width）は固定のまま、頂点だけが
+    apex_offset_um の位置に動く。頂点の左右をそれぞれ別の半幅を持つ
+    プロファイルでつなぐため、片側の裾が緩く、反対側が急になる。
+    """
+    if x_local_um >= apex_offset_um:
+        side_half_width = half_width_um - apex_offset_um
+    else:
+        side_half_width = half_width_um + apex_offset_um
+    if side_half_width <= 0.0:
+        return 0.0
+    return lens_profile_height_um(x_local_um - apex_offset_um,
+                                  side_half_width, height_um, shape,
+                                  superellipse_exponent)
+
+
 def lens_contour_scale(z_from_base_um, half_width_um, height_um, shape,
                        superellipse_exponent):
     """高さzでのレンズ輪郭の縮小率（0〜1）を返す（3Dスライス生成用）。
@@ -126,13 +146,18 @@ def pixel_boundary_positions_um(pixel_pitch_um, num_pixels, placement,
 # ---- 2Dモード ----
 
 def build_lens_prism_2d(center_x_um, base_y_um, half_width_um, height_um,
-                        shape, superellipse_exponent, medium):
-    """レンズ断面ポリゴンからMeepのPrism（2D多角形）を作る。"""
+                        shape, superellipse_exponent, medium,
+                        apex_offset_um=0.0):
+    """レンズ断面ポリゴンからMeepのPrism（2D多角形）を作る。
+
+    apex_offset_um は偏心量（フットプリント固定のまま頂点位置をずらす）。
+    """
     vertices = []
     for i in range(LENS_POLYGON_POINTS + 1):
         x_local = -half_width_um + (2.0 * half_width_um) * i / LENS_POLYGON_POINTS
-        y = lens_profile_height_um(x_local, half_width_um, height_um, shape,
-                                   superellipse_exponent)
+        y = lens_profile_height_decentered(
+            x_local, half_width_um, height_um, shape,
+            superellipse_exponent, apex_offset_um)
         vertices.append(mp.Vector3(center_x_um + x_local, base_y_um + y, 0))
     # 底面の直線で閉じる（終点→始点は自動で結ばれる）
     return mp.Prism(vertices, height=mp.inf, axis=mp.Vector3(0, 0, 1),
@@ -142,12 +167,11 @@ def build_lens_prism_2d(center_x_um, base_y_um, half_width_um, height_um,
 def lens_layout_2d(params, crosstalk):
     """2Dモードのレンズ中心位置と半幅、画素数を返す。
 
-    レンズ中心には偏心オフセット（ocl.offset_um）を加える。
-    PDや画素境界の位置は動かさず、レンズだけがずれる。
+    レンズのフットプリント（底面の範囲）は画素に固定する。
+    偏心（ocl.offset_um）は頂点位置のずれとしてプリズム生成時に反映する。
     """
     pitch = params["pixel_pitch_um"]
     sharing = params["ocl"]["sharing"]
-    offset = params["ocl"]["offset_um"]
     if crosstalk:
         # 受光内訳・クロストーク評価は共有レンズ単位×3（中央単位のみ照射）。
         # 1画素1レンズなら3画素、2画素/4画素共有なら6画素のセルになる
@@ -155,18 +179,18 @@ def lens_layout_2d(params, crosstalk):
         unit_width = pitch * unit_pixels
         num_pixels = CROSSTALK_GRID_PIXELS * unit_pixels
         lens_centers = [unit_width * (i - (CROSSTALK_GRID_PIXELS - 1) / 2.0)
-                        + offset for i in range(CROSSTALK_GRID_PIXELS)]
+                        for i in range(CROSSTALK_GRID_PIXELS)]
         lens_half_width = unit_width / 2.0
         return num_pixels, lens_centers, lens_half_width
     num_pixels = NUM_PIXELS_2D[sharing]
     if sharing == "single":
-        lens_centers = [pitch * (i - (num_pixels - 1) / 2.0) + offset
+        lens_centers = [pitch * (i - (num_pixels - 1) / 2.0)
                         for i in range(num_pixels)]
         lens_half_width = pitch / 2.0
     else:
         # shared2/shared4は2画素分の幅を持つ1枚のレンズ
         # （shared4の2Dモードは2×2レンズ中央断面の近似）
-        lens_centers = [offset]
+        lens_centers = [0.0]
         lens_half_width = pitch
     return num_pixels, lens_centers, lens_half_width
 
@@ -225,22 +249,21 @@ def build_structure_2d(params, media):
             material=media[name]))
 
     # 周期境界ではセル外にはみ出した形状の周期像が自動では作られないため、
-    # オフセット指定時は±セル幅にずらした複製を置いて周期像を再現する
-    has_offset = (params["ocl"]["offset_um"] != 0.0
-                  or params["dti"]["offset_um"] != 0.0)
-    if not crosstalk and has_offset:
+    # DTIオフセット指定時は±セル幅にずらした複製を置いて周期像を再現する。
+    # （OCL偏心はフットプリント固定でセルからはみ出さないため複製不要）
+    if not crosstalk and params["dti"]["offset_um"] != 0.0:
         wrap_shifts = [-cell_width, 0.0, cell_width]
     else:
         wrap_shifts = [0.0]
 
     if params["ocl"]["enabled"]:
         for center_x in lens_centers:
-            for shift in wrap_shifts:
-                geometry.append(build_lens_prism_2d(
-                    center_x + shift, to_cell_y(heights["lens_base"]),
-                    lens_half_width, params["ocl"]["height_um"],
-                    params["ocl"]["shape"],
-                    params["ocl"]["superellipse_exponent"], media["ocl"]))
+            geometry.append(build_lens_prism_2d(
+                center_x, to_cell_y(heights["lens_base"]),
+                lens_half_width, params["ocl"]["height_um"],
+                params["ocl"]["shape"],
+                params["ocl"]["superellipse_exponent"], media["ocl"],
+                apex_offset_um=params["ocl"]["offset_um"]))
 
     # DTI: Si上面から指定深さまでの縦溝。Siより後に置いてSiを上書きする
     # 位置オフセット（dti.offset_um）でDTI格子だけを横にずらせる
