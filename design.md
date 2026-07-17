@@ -148,9 +148,26 @@ cis-pixel-optics-sim/
 | GET | /api/jobs/{id}/image | 断面図PNG |
 | GET | /api/jobs/{id}/topview | 真上ビューPNG（3Dのみ） |
 | GET | /api/jobs/{id}/sweep-plot | スイープ結果グラフPNG |
-| GET | /api/jobs/{id}/csv | スイープ結果CSV |
+| GET | /api/jobs/{id}/csv | 結果CSV（batch.csv があればそれを、なければ sweep.csv を返す） |
 | POST | /api/jobs/{id}/cancel | 実行中ジョブの中断 |
 | POST | /api/preview | 構造断面プレビュー生成 |
+| GET | /api/batch-template | CSV一括計算のテンプレートCSV |
+
+### 4.2b CSV一括計算（F-12）
+
+- UIはCSVファイルをテキストとして読み（UTF-8で失敗したらShift_JISで再解釈）、
+  画面の入力値JSONに `batch_csv` として添えて POST /api/jobs へ送る
+- サーバーは `engine.fdtd_worker.parse_batch_csv` でケース一覧
+  `{"columns": [...], "cases": [{"label", "overrides"}...]}` に変換して
+  `params["batch"]` に格納し、通常のジョブとして起動する
+- ワーカーはスイープと同じ仕組みで1行=1条件を順に計算する
+  （画面の入力値をベースに、CSVに書かれた列だけをドット区切りパスで上書き。
+  各条件は実行前に単発計算と同じ範囲チェックを通す）
+- 使える列名は `BATCH_COLUMN_TYPES`（数値／1・0／選択肢文字列）と
+  任意の条件名 `label`。上限は `MAX_BATCH_CASES`（100条件）
+- 結果は `batch.csv`（条件名・上書き値・集光効率・画素ごとの効率、
+  受光内訳ありなら中央効率とクロストーク）をExcel対応のBOM付きUTF-8で出力する
+- スイープとの同時指定はエラーにする（UI側でも一括実行時は sweep を送らない）
 
 ### 4.3 ジョブ実行フロー
 

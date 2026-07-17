@@ -5,6 +5,9 @@
 ブラウザで http://localhost:8000 を開く。
 """
 
+import csv
+import io
+
 import meep as mp
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
@@ -16,6 +19,16 @@ from app.constants import HOST, JOBS_DIR, PORT, STATIC_DIR
 from engine import fdtd_worker
 
 mp.verbosity(0)  # Meepのログはworker.log側に集約し、サーバーログを汚さない
+
+# CSV一括計算のテンプレート（1行目=列名、2行目以降=記入例）。
+# 空欄の列は画面の入力値が使われる。使える列名の一覧はヘルプに記載
+BATCH_TEMPLATE_ROWS = [
+    ["label", "pixel_pitch_um", "ocl.height_um", "materials.ocl_n",
+     "source.wavelength_nm", "source.incident_angle_deg", "ocl.offset_um"],
+    ["条件1", "1.0", "0.5", "1.58", "550", "0", "0"],
+    ["条件2", "1.0", "0.6", "1.7", "550", "10", "0.1"],
+]
+BATCH_TEMPLATE_FILENAME = "batch_template.csv"
 
 app = FastAPI(title="cis-pixel-optics-sim")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -39,7 +52,10 @@ def index():
 async def create_job(request: Request):
     """パラメータを検証してジョブを起動する。"""
     user_params = await request.json()
+    batch_csv_text = user_params.pop("batch_csv", None)
     try:
+        if batch_csv_text:
+            user_params["batch"] = fdtd_worker.parse_batch_csv(batch_csv_text)
         params = fdtd_worker.merge_defaults(user_params,
                                             fdtd_worker.DEFAULT_PARAMS)
         fdtd_worker.validate_params(params)
@@ -108,11 +124,25 @@ def get_job_sweep_plot(job_id: str):
 
 @app.get("/api/jobs/{job_id}/csv")
 def get_job_csv(job_id: str):
-    csv_path = JOBS_DIR / job_id / "sweep.csv"
-    if not csv_path.exists():
-        raise HTTPException(status_code=404, detail="CSVがありません")
-    return FileResponse(csv_path, media_type="text/csv",
-                        filename=f"sweep_{job_id}.csv")
+    """スイープまたはCSV一括計算の結果CSVを返す。"""
+    for file_name in ("batch.csv", "sweep.csv"):
+        csv_path = JOBS_DIR / job_id / file_name
+        if csv_path.exists():
+            kind = file_name.removesuffix(".csv")
+            return FileResponse(csv_path, media_type="text/csv",
+                                filename=f"{kind}_{job_id}.csv")
+    raise HTTPException(status_code=404, detail="CSVがありません")
+
+
+@app.get("/api/batch-template")
+def get_batch_template():
+    """CSV一括計算のテンプレートCSVを返す（Excel対応のBOM付きUTF-8）。"""
+    buffer = io.StringIO()
+    csv.writer(buffer).writerows(BATCH_TEMPLATE_ROWS)
+    headers = {"Content-Disposition":
+               f'attachment; filename="{BATCH_TEMPLATE_FILENAME}"'}
+    return Response(content=buffer.getvalue().encode("utf-8-sig"),
+                    media_type="text/csv", headers=headers)
 
 
 @app.post("/api/jobs/{job_id}/cancel")
