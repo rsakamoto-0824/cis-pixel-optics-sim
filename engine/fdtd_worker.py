@@ -8,6 +8,7 @@ job_dir/input.json を読み、以下を出力する。
     result.json    集光効率・クロストークなどの数値結果
     fields.npz     電場強度分布 |E|^2 と構造（誘電率）分布
     sweep.csv      スイープ実行時の集計表
+    batch.csv      CSV一括計算実行時の集計表
 
 集光効率は「参照計算（構造なし・空気のみ）の入射パワー」に対する
 「PD面（Si内の指定深さの水平面）を通過するパワー」の比で定義する。
@@ -17,6 +18,7 @@ job_dir/input.json を読み、以下を出力する。
 import cmath
 import copy
 import csv
+import io
 import json
 import math
 import sys
@@ -70,6 +72,49 @@ SWEEP_PARAMETER_LABELS = {
     "dti.offset_um": "DTIオフセット [µm]",
     "layers.color_filter_um": "カラーフィルタ膜厚 [µm]",
 }
+
+# CSV一括計算で指定できる列（ドット区切りパス → 値の型）
+# 型: "float"=数値 / "bool"=1・0またはtrue・false / "choice"=選択肢の文字列
+BATCH_COLUMN_TYPES = {
+    "pixel_pitch_um": "float",
+    "crosstalk": "bool",
+    "ocl.enabled": "bool",
+    "ocl.height_um": "float",
+    "ocl.shape": "choice",
+    "ocl.superellipse_exponent": "float",
+    "ocl.sharing": "choice",
+    "ocl.offset_um": "float",
+    "ocl.base_um": "float",
+    "ocl.gap_height_left_um": "float",
+    "ocl.gap_height_right_um": "float",
+    "materials.ocl_n": "float",
+    "materials.planarization_n": "float",
+    "materials.color_filter_n": "float",
+    "materials.ar_n": "float",
+    "materials.dti_n": "float",
+    "layers.planarization_um": "float",
+    "layers.color_filter_um": "float",
+    "layers.ar_um": "float",
+    "layers.si_um": "float",
+    "dti.enabled": "bool",
+    "dti.width_um": "float",
+    "dti.depth_um": "float",
+    "dti.placement": "choice",
+    "dti.offset_um": "float",
+    "source.wavelength_nm": "float",
+    "source.incident_angle_deg": "float",
+    "pd.top_depth_um": "float",
+    "resolution_pixels_per_um": "float",
+}
+
+# CSV一括計算の条件名列（任意。結果CSVにそのまま出力する）
+BATCH_LABEL_COLUMN = "label"
+
+# CSV一括計算の最大条件数（1条件あたり数分かかるため上限を設ける）
+MAX_BATCH_CASES = 100
+
+# CSV一括計算でこの条件数を超えたら所要時間の注意を出す
+MANY_BATCH_CASES_WARNING = 10
 
 DEFAULT_PARAMS = {
     "mode": "2d",         # 2d / 3d
@@ -126,6 +171,8 @@ DEFAULT_PARAMS = {
     "resolution_pixels_per_um": 100,
     # スイープ指定（任意）: {"parameter": ドット区切りパス, "values": [数値...]}
     "sweep": None,
+    # CSV一括計算（任意）: {"columns": [列名...], "cases": [{label, overrides}...]}
+    "batch": None,
 }
 
 
@@ -149,6 +196,79 @@ def set_nested_value(params, dotted_key, value):
     for key in keys[:-1]:
         target = target[key]
     target[keys[-1]] = value
+
+
+def parse_batch_csv(csv_text):
+    """CSVテキストをCSV一括計算のケース一覧に変換する。
+
+    1行目は列名（label と BATCH_COLUMN_TYPES のドット区切りパス）、
+    2行目以降は1行が1条件。空欄の列は画面の入力値をそのまま使う。
+    問題があれば日本語メッセージで例外を出す。
+    """
+    reader = csv.reader(io.StringIO(csv_text))
+    rows = [row for row in reader if any(cell.strip() for cell in row)]
+    if len(rows) < 2:
+        raise ValueError(
+            "CSVに条件の行がありません（1行目=列名、2行目以降=条件）")
+
+    # ExcelのCSVは先頭にBOM（不可視文字）が付くことがあるため取り除く
+    header = [cell.strip().lstrip("\ufeff") for cell in rows[0]]
+    unknown_columns = [name for name in header
+                       if name and name != BATCH_LABEL_COLUMN
+                       and name not in BATCH_COLUMN_TYPES]
+    if unknown_columns:
+        raise ValueError(
+            "CSVに使えない列名があります: " + ", ".join(unknown_columns)
+            + "（テンプレートCSVまたはヘルプの列名一覧を確認してください）")
+    if len(rows) - 1 > MAX_BATCH_CASES:
+        raise ValueError(
+            f"条件数が多すぎます: {len(rows) - 1} 行"
+            f"（最大 {MAX_BATCH_CASES} 行）")
+
+    cases = []
+    for line_number, row in enumerate(rows[1:], start=2):
+        overrides = {}
+        label = ""
+        for column_name, cell in zip(header, row):
+            text = cell.strip()
+            if not column_name or not text:
+                continue
+            if column_name == BATCH_LABEL_COLUMN:
+                label = text
+                continue
+            column_type = BATCH_COLUMN_TYPES[column_name]
+            if column_type == "float":
+                try:
+                    overrides[column_name] = float(text)
+                except ValueError:
+                    raise ValueError(
+                        f"CSV {line_number}行目の {column_name} が"
+                        f"数値ではありません: {text}")
+            elif column_type == "bool":
+                lowered = text.lower()
+                if lowered in ("1", "true"):
+                    overrides[column_name] = True
+                elif lowered in ("0", "false"):
+                    overrides[column_name] = False
+                else:
+                    raise ValueError(
+                        f"CSV {line_number}行目の {column_name} は"
+                        f" 1・0 または true・false で指定してください: {text}")
+            else:
+                overrides[column_name] = text
+        cases.append({"label": label or f"条件{line_number - 1}",
+                      "overrides": overrides})
+    return {"columns": [name for name in header if name], "cases": cases}
+
+
+def apply_batch_overrides(base_params, overrides):
+    """画面の入力値（base_params）にCSV1行分の上書きを適用する。"""
+    case_params = copy.deepcopy(base_params)
+    case_params["batch"] = None
+    case_params["sweep"] = None
+    for dotted_key, value in overrides.items():
+        set_nested_value(case_params, dotted_key, value)
+    return case_params
 
 
 def validate_params(params):
@@ -225,6 +345,20 @@ def validate_params(params):
     if params["pd"]["top_depth_um"] >= params["layers"]["si_um"]:
         errors.append("PD面の深さはSi厚より浅くしてください")
 
+    batch = params.get("batch")
+    if batch:
+        if params.get("sweep"):
+            errors.append("スイープとCSV一括計算は同時に指定できません")
+        # 各条件を実際に組み立てて範囲チェックする
+        for case_number, case in enumerate(batch["cases"], start=1):
+            try:
+                validate_params(
+                    apply_batch_overrides(params, case["overrides"]))
+            except ValueError as case_error:
+                errors.append(
+                    f"CSV {case_number}件目（{case['label']}）: {case_error}")
+                break
+
     sweep = params.get("sweep")
     if sweep:
         parameter = sweep.get("parameter")
@@ -280,6 +414,11 @@ def collect_warnings(params):
                 f"3Dモードの計算セルは約 {voxels / 1e6:.0f} Mボクセルです。"
                 "計算に数十分以上かかる場合があります。まず解像度を下げて"
                 "傾向を確認することを推奨します")
+    batch = params.get("batch")
+    if batch and len(batch["cases"]) > MANY_BATCH_CASES_WARNING:
+        warnings.append(
+            f"CSV一括計算は {len(batch['cases'])} 条件あります。"
+            "1条件あたり数分かかるため、完了まで時間がかかります")
     return warnings
 
 
@@ -637,6 +776,65 @@ def run_sweep(params, job_dir, progress_path, start_time):
     }
 
 
+def run_batch(params, job_dir, progress_path, start_time):
+    """CSV一括計算: CSVの1行を1条件として順に計算し、結果CSVを出力する。"""
+    cases = params["batch"]["cases"]
+    batch_results = []
+    for index, case in enumerate(cases):
+        case_params = apply_batch_overrides(params, case["overrides"])
+        phase_prefix = f"batch {index + 1}/{len(cases)} ({case['label']}) "
+        case_result = run_single_case(
+            case_params, job_dir / f"case_{index:02d}", progress_path,
+            phase_prefix, start_time)
+        entry = {
+            "label": case["label"],
+            "overrides": case["overrides"],
+            "collection_efficiency_total":
+                case_result["collection_efficiency_total"],
+            "collection_efficiency_per_pixel":
+                case_result["collection_efficiency_per_pixel"],
+        }
+        if case_params["crosstalk"]:
+            entry["collection_efficiency_center"] = \
+                case_result["collection_efficiency_center"]
+            entry["crosstalk_total"] = case_result["crosstalk_total"]
+        batch_results.append(entry)
+
+    parameter_columns = [name for name in params["batch"]["columns"]
+                         if name != BATCH_LABEL_COLUMN]
+    write_batch_csv(job_dir / "batch.csv", parameter_columns, batch_results)
+    return {"columns": parameter_columns, "results": batch_results}
+
+
+def write_batch_csv(csv_path, parameter_columns, batch_results):
+    """一括計算の結果CSVを書き出す（Excelで開けるようBOM付きUTF-8）。"""
+    max_pixels = max(len(entry["collection_efficiency_per_pixel"])
+                     for entry in batch_results)
+    has_crosstalk = any("crosstalk_total" in entry
+                        for entry in batch_results)
+    header = [BATCH_LABEL_COLUMN] + parameter_columns
+    header += ["collection_efficiency_total"]
+    header += [f"efficiency_pixel_{i + 1}" for i in range(max_pixels)]
+    if has_crosstalk:
+        header += ["collection_efficiency_center", "crosstalk_total"]
+
+    with open(csv_path, "w", newline="", encoding="utf-8-sig") as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(header)
+        for entry in batch_results:
+            # 空欄の列は画面の入力値で計算した印としてそのまま空欄にする
+            row = [entry["label"]]
+            row += [entry["overrides"].get(name, "")
+                    for name in parameter_columns]
+            row.append(entry["collection_efficiency_total"])
+            per_pixel = entry["collection_efficiency_per_pixel"]
+            row += per_pixel + [""] * (max_pixels - len(per_pixel))
+            if has_crosstalk:
+                row += [entry.get("collection_efficiency_center", ""),
+                        entry.get("crosstalk_total", "")]
+            writer.writerow(row)
+
+
 def write_sweep_csv(csv_path, label, sweep_results, crosstalk):
     num_pixels = len(sweep_results[0]["collection_efficiency_per_pixel"])
     header = [label, "collection_efficiency_total"]
@@ -670,7 +868,11 @@ def run_job(job_dir):
         "input": params,
         "warnings": warnings,
     }
-    if params["sweep"]:
+    if params["batch"]:
+        result["type"] = "batch"
+        result["batch"] = run_batch(params, job_dir, progress_path,
+                                    start_time)
+    elif params["sweep"]:
         result["type"] = "sweep"
         result["sweep"] = run_sweep(params, job_dir, progress_path,
                                     start_time)

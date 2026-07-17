@@ -105,6 +105,7 @@
       <li><a href="#calc">5. 計算の設定</a></li>
       <li><a href="#result">6. 結果の見方</a></li>
       <li><a href="#sweep">7. パラメータスイープ</a></li>
+      <li><a href="#batch-csv">8. CSV一括計算</a></li>
     </ul>
   </nav>
 
@@ -280,6 +281,52 @@
         <dt>CSVダウンロード</dt>
         <dd>スイープ結果の一覧表をCSVファイルとして保存できます。
           Excelなどでそのまま開けます。</dd>
+      </dl>
+    </section>
+
+    <section id="batch-csv">
+      <h2>8. CSV一括計算</h2>
+      <dl>
+        <dt>CSV一括計算とは</dt>
+        <dd>シミュレーション条件を書いたCSVファイルを読み込み、
+          1行を1条件としてまとめて計算する機能です。スイープと違い、
+          行ごとに複数のパラメータを同時に変えられます。
+          結果は一覧表とCSVファイル（結果CSV）で確認できます。</dd>
+        <dt>CSVの書き方</dt>
+        <dd>1行目に列名、2行目以降に条件を書きます。画面の
+          「テンプレートCSVをダウンロード」から雛形を取得し、Excelで
+          編集するのが簡単です。CSVに書いた列だけが上書きされ、
+          空欄・書いていない項目は画面の入力値がそのまま使われます。
+          最大100条件まで指定できます。</dd>
+        <dt>label 列</dt>
+        <dd>条件の名前を自由に付けられる列です（例: 標準、レンズ高め）。
+          結果の表と結果CSVにそのまま表示されます。省略すると
+          「条件1、条件2…」の連番になります。</dd>
+        <dt>結果CSV</dt>
+        <dd>1行に「条件名・入力した値・集光効率（合計）・画素ごとの
+          効率」を並べたCSVです。受光内訳の評価を有効にした条件では、
+          中央画素の効率とクロストーク合計も出力されます。
+          Excelでそのまま開けます（文字化けしない形式で保存）。</dd>
+        <dt>使える列名の一覧</dt>
+        <dd>数値の列: pixel_pitch_um（画素サイズ）、
+          ocl.height_um（OCL高さ）、ocl.superellipse_exponent
+          （スーパー楕円指数）、ocl.offset_um（OCL偏心）、
+          ocl.base_um（ベース層厚）、ocl.gap_height_left_um /
+          ocl.gap_height_right_um（左右ギャップ高さ）、
+          materials.ocl_n（OCL屈折率）、materials.planarization_n /
+          materials.color_filter_n / materials.ar_n / materials.dti_n
+          （各層の屈折率）、layers.planarization_um /
+          layers.color_filter_um / layers.ar_um / layers.si_um
+          （各層の膜厚）、dti.width_um（DTI幅）、dti.depth_um
+          （DTI深さ）、dti.offset_um（DTIオフセット）、
+          source.wavelength_nm（波長）、source.incident_angle_deg
+          （入射角）、pd.top_depth_um（PD面の深さ）、
+          resolution_pixels_per_um（メッシュ解像度）。<br>
+          1か0で指定する列: crosstalk（受光内訳の評価）、
+          ocl.enabled（OCLあり）、dti.enabled（DTIあり）。<br>
+          文字で指定する列: ocl.shape（spherical_cap /
+          superellipse）、ocl.sharing（single / shared2 / shared4）、
+          dti.placement（all / shared_only）。</dd>
       </dl>
     </section>
   </main>

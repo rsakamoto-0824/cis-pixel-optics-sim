@@ -169,6 +169,24 @@
         </fieldset>
 
         <fieldset>
+          <legend>CSV一括計算</legend>
+          <p class="field-note">CSVの1行を1条件として、まとめて計算します。
+            CSVに書いた列だけが上書きされ、空欄・書いていない項目は画面の
+            入力値をそのまま使います。使える列名は
+            <a href="/static/help.html#batch-csv" target="_blank"
+               rel="noopener">ヘルプ</a>を参照してください。</p>
+          <p class="field-note">
+            <a href="/api/batch-template" download>テンプレートCSVを
+            ダウンロード</a>（Excelで編集できます）</p>
+          <label>条件CSVファイル
+            <input type="file" id="batch-file" accept=".csv,text/csv">
+          </label>
+          <div class="button-row">
+            <button type="button" id="batch-run-button">CSV一括計算を実行</button>
+          </div>
+        </fieldset>
+
+        <fieldset>
           <legend>光・計算条件</legend>
           <label>波長 [nm]
             <input type="number" id="wavelength" value="550"

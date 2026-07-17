@@ -5,6 +5,8 @@ const JOB_POLL_INTERVAL_MS = 2000;
 const form = document.getElementById("parameter-form");
 const previewButton = document.getElementById("preview-button");
 const runButton = document.getElementById("run-button");
+const batchRunButton = document.getElementById("batch-run-button");
+const batchFileInput = document.getElementById("batch-file");
 const formMessage = document.getElementById("form-message");
 const previewArea = document.getElementById("preview-area");
 const resultArea = document.getElementById("result-area");
@@ -69,6 +71,13 @@ function collectParams() {
     pd: { top_depth_um: numberValue("pd-depth") },
     resolution_pixels_per_um: numberValue("resolution"),
   };
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (ch) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;",
+    '"': "&quot;", "'": "&#39;",
+  }[ch]));
 }
 
 function showMessage(text, kind) {
@@ -138,6 +147,44 @@ form.addEventListener("submit", async (event) => {
   }
 });
 
+// ---- CSV一括計算 ----
+
+async function readCsvFileText(file) {
+  // ExcelのCSV（Shift_JIS保存）でも読めるよう、UTF-8で失敗したら読み直す
+  const buffer = await file.arrayBuffer();
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+  } catch (error) {
+    return new TextDecoder("shift_jis").decode(buffer);
+  }
+}
+
+batchRunButton.addEventListener("click", async () => {
+  clearMessage();
+  if (batchFileInput.files.length === 0) {
+    showMessage("条件CSVファイルを選択してください", "error");
+    return;
+  }
+  batchRunButton.disabled = true;
+  runButton.disabled = true;
+  try {
+    const params = collectParams();
+    params.sweep = null; // 一括計算とスイープは同時に使わない
+    params.batch_csv = await readCsvFileText(batchFileInput.files[0]);
+    const response = await postJson("/api/jobs", params);
+    const data = await response.json();
+    if (data.warnings && data.warnings.length > 0) {
+      showMessage(`注意:\n${data.warnings.join("\n")}`, "warning");
+    }
+    watchJob(data.job_id);
+    refreshJobList();
+  } catch (error) {
+    showMessage(error.message, "error");
+    runButton.disabled = false;
+    batchRunButton.disabled = false;
+  }
+});
+
 function watchJob(jobId) {
   if (pollTimerId !== null) clearInterval(pollTimerId);
   resultArea.innerHTML =
@@ -153,6 +200,7 @@ function watchJob(jobId) {
       clearInterval(pollTimerId);
       pollTimerId = null;
       runButton.disabled = false;
+      batchRunButton.disabled = false;
       refreshJobList();
 
       if (job.status === "finished" && job.result) {
@@ -170,6 +218,10 @@ function watchJob(jobId) {
 function renderResult(jobId, result) {
   if (result.type === "sweep") {
     renderSweepResult(jobId, result);
+    return;
+  }
+  if (result.type === "batch") {
+    renderBatchResult(jobId, result);
     return;
   }
 
@@ -263,6 +315,50 @@ function renderSweepResult(jobId, result) {
     <table>
       <thead><tr><th>${result.sweep.label}</th><th>集光効率</th>
         ${crosstalkHeader}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function renderBatchResult(jobId, result) {
+  const columns = result.batch.columns;
+  const entries = result.batch.results;
+  const hasCrosstalk =
+    entries.some((entry) => entry.crosstalk_total !== undefined);
+
+  const headerCells = ["条件名"].concat(columns)
+    .map((name) => `<th>${escapeHtml(name)}</th>`).join("")
+    + "<th>集光効率</th>"
+    + (hasCrosstalk ? "<th>クロストーク</th>" : "");
+
+  const rows = entries.map((entry) => {
+    // 空欄（上書きなし）の列は「—」で表示する（画面の入力値で計算）
+    const parameterCells = columns.map((name) => {
+      const value = entry.overrides[name];
+      return `<td>${value === undefined ? "—" : escapeHtml(value)}</td>`;
+    }).join("");
+    const crosstalkCell = !hasCrosstalk ? ""
+      : entry.crosstalk_total === undefined ? "<td>—</td>"
+      : `<td>${(entry.crosstalk_total * 100).toFixed(2)}%</td>`;
+    return `<tr><td>${escapeHtml(entry.label)}</td>${parameterCells}` +
+      `<td>${(entry.collection_efficiency_total * 100).toFixed(1)}%</td>` +
+      crosstalkCell + `</tr>`;
+  }).join("");
+
+  resultArea.innerHTML = `
+    <div class="result-numbers">
+      <div class="metric">
+        <div class="metric-label">CSV一括計算</div>
+        <div class="metric-value">${entries.length}条件</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">計算時間</div>
+        <div class="metric-value">${result.elapsed_seconds}秒</div>
+      </div>
+    </div>
+    <p><a href="/api/jobs/${jobId}/csv" download>結果CSVをダウンロード</a></p>
+    <table>
+      <thead><tr>${headerCells}</tr></thead>
       <tbody>${rows}</tbody>
     </table>
   `;
