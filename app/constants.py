@@ -14,3 +14,6 @@ JOB_ID_TIMESTAMP_FORMAT = "%Y%m%d-%H%M%S"
 
 # ジョブ一覧に表示する最大件数
 JOB_LIST_MAX_COUNT = 50
+
+# ジョブ名の最大文字数（一覧表示が崩れない範囲）
+JOB_NAME_MAX_LENGTH = 60

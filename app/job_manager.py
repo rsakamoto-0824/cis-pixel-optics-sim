@@ -8,6 +8,7 @@ import datetime
 import json
 import os
 import secrets
+import shutil
 import signal
 import subprocess
 import sys
@@ -16,7 +17,7 @@ from app.constants import (JOB_ID_TIMESTAMP_FORMAT, JOB_LIST_MAX_COUNT,
                            JOBS_DIR, REPO_ROOT)
 
 
-def create_job(params):
+def create_job(params, job_name):
     """input.jsonを書き出してワーカーを起動し、ジョブIDを返す。"""
     timestamp = datetime.datetime.now().strftime(JOB_ID_TIMESTAMP_FORMAT)
     job_id = f"{timestamp}-{secrets.token_hex(3)}"
@@ -35,6 +36,7 @@ def create_job(params):
         cwd=REPO_ROOT, stdout=log_file, stderr=subprocess.STDOUT)
     (job_dir / "meta.json").write_text(json.dumps({
         "pid": process.pid,
+        "name": job_name,
         "created_at": datetime.datetime.now().isoformat(timespec="seconds"),
     }, ensure_ascii=False))
     return job_id
@@ -76,6 +78,8 @@ def get_job_status(job_id):
 
     return {
         "job_id": job_id,
+        # 名前が未設定の古いジョブ・サンプルジョブはIDをそのまま表示する
+        "name": meta.get("name") or job_id,
         "status": status,
         "phase": progress.get("phase"),
         "error": progress.get("error"),
@@ -97,6 +101,31 @@ def list_jobs():
                      reverse=True)
     return [get_job_status(job_id)
             for job_id in job_ids[:JOB_LIST_MAX_COUNT]]
+
+
+def rename_job(job_id, new_name):
+    """ジョブ名を変更する（meta.jsonのnameを書き換える）。"""
+    meta_path = JOBS_DIR / job_id / "meta.json"
+    if not (JOBS_DIR / job_id).is_dir():
+        return False
+    meta = read_json_if_exists(meta_path) or {}
+    meta["name"] = new_name
+    meta_path.write_text(json.dumps(meta, ensure_ascii=False))
+    return True
+
+
+def delete_job(job_id):
+    """ジョブのフォルダごと削除する。実行中は削除しない。
+
+    戻り値: (成功したか, 失敗理由メッセージ)
+    """
+    status = get_job_status(job_id)
+    if status is None:
+        return False, "ジョブが見つかりません"
+    if status["status"] == "running":
+        return False, "実行中のジョブは中断してから削除してください"
+    shutil.rmtree(JOBS_DIR / job_id)
+    return True, None
 
 
 def cancel_job(job_id):

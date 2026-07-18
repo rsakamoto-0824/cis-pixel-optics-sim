@@ -190,6 +190,15 @@ th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--colo
   text-decoration: underline;
 }
 
+/* 操作セル内のボタン同士に隙間を空ける */
+td .link-button + .link-button { margin-left: 10px; }
+
+/* ジョブ名の下に小さく表示するジョブID（結果フォルダ名） */
+.job-id-sub {
+  color: var(--color-text-weak);
+  font-size: 0.7rem;
+}
+
 .spinner {
   display: inline-block;
   width: 14px;
