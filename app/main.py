@@ -190,6 +190,25 @@ async def rename_job(job_id: str, request: Request):
     return {"name": new_name}
 
 
+@app.post("/api/jobs/bulk-delete")
+async def bulk_delete_jobs(request: Request):
+    """複数ジョブの一括削除。
+
+    body: {"job_ids": [...]} で選択分、{"all": true} で全件。
+    実行中のジョブはスキップして件数を返す。
+    """
+    body = await request.json()
+    if body.get("all"):
+        job_ids = job_manager.list_all_job_ids()
+    else:
+        job_ids = body.get("job_ids") or []
+        if not job_ids:
+            raise HTTPException(status_code=400,
+                                detail="削除するジョブが選択されていません")
+    deleted_count, skipped_count = job_manager.delete_jobs_bulk(job_ids)
+    return {"deleted": deleted_count, "skipped": skipped_count}
+
+
 @app.delete("/api/jobs/{job_id}")
 def delete_job(job_id: str):
     """ジョブを削除する（実行中は不可）。"""

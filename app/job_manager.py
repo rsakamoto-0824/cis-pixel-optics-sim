@@ -128,6 +128,29 @@ def delete_job(job_id):
     return True, None
 
 
+def list_all_job_ids():
+    """表示件数の上限に関係なく、全ジョブIDを返す（一括削除用）。"""
+    if not JOBS_DIR.is_dir():
+        return []
+    return [path.name for path in JOBS_DIR.iterdir() if path.is_dir()]
+
+
+def delete_jobs_bulk(job_ids):
+    """複数ジョブを削除する。実行中などで削除できないものはスキップする。
+
+    戻り値: (削除した件数, スキップした件数)
+    """
+    deleted_count = 0
+    skipped_count = 0
+    for job_id in job_ids:
+        deleted, _ = delete_job(job_id)
+        if deleted:
+            deleted_count += 1
+        else:
+            skipped_count += 1
+    return deleted_count, skipped_count
+
+
 def cancel_job(job_id):
     """実行中のジョブを中断する。"""
     status = get_job_status(job_id)
