@@ -31,9 +31,13 @@ function collectSweep() {
 }
 
 function collectParams() {
-  // 計算モード欄は廃止し、常に2D断面モードで計算する（2026-07-12 ユーザー指示）
+  // 通常は2D断面モード。真上ビューを有効にしたときだけ3Dで計算する
+  // （2026-07-18 ユーザー指示。観察深さが空欄ならPD面と同じ深さ）
+  const topViewEnabled = document.getElementById("topview-enabled").checked;
+  const topViewDepth = numberValue("topview-depth");
   return {
-    mode: "2d",
+    mode: topViewEnabled ? "3d" : "2d",
+    view: { depth_um: Number.isNaN(topViewDepth) ? null : topViewDepth },
     crosstalk: document.getElementById("breakdown-enabled").checked,
     sweep: collectSweep(),
     pixel_pitch_um: numberValue("pixel-pitch"),
