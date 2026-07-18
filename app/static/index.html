@@ -28,11 +28,11 @@
         <button type="button" class="settings-tab"
                 data-panel="panel-dti">DTI</button>
         <button type="button" class="settings-tab"
+                data-panel="panel-light">光・計算</button>
+        <button type="button" class="settings-tab"
                 data-panel="panel-evaluation">評価</button>
         <button type="button" class="settings-tab"
                 data-panel="panel-sweep-csv">スイープ・CSV</button>
-        <button type="button" class="settings-tab"
-                data-panel="panel-light">光・計算</button>
       </div>
 
       <form id="parameter-form">
@@ -152,6 +152,31 @@
           </fieldset>
         </div>
 
+        <div class="settings-panel" id="panel-light" hidden>
+          <fieldset>
+            <legend>光・計算条件</legend>
+            <label>波長 [nm]
+              <input type="number" id="wavelength" value="550"
+                     min="400" max="700" step="any" required>
+            </label>
+            <label>入射角 CRA [°]
+              <input type="number" id="incident-angle" value="0"
+                     min="0" max="35" step="any" required>
+            </label>
+            <label>PD面の深さ（Si上面から）[µm]
+              <input type="number" id="pd-depth" value="0.5"
+                     min="0.1" max="5" step="any">
+            </label>
+            <label>メッシュ解像度 [セル/µm]
+              <input type="number" id="resolution" value="100"
+                     min="20" max="400" step="any">
+            </label>
+            <p class="field-note">3D計算（真上ビュー）を試すときは、まず
+              40〜50に下げると数分で傾向を確認できます（精度が足りない
+              場合は実行時に注意が表示されます）。</p>
+          </fieldset>
+        </div>
+
         <div class="settings-panel" id="panel-evaluation" hidden>
           <fieldset>
             <legend>受光内訳の評価</legend>
@@ -226,31 +251,6 @@
             <div class="button-row">
               <button type="button" id="batch-run-button">CSV一括計算を実行</button>
             </div>
-          </fieldset>
-        </div>
-
-        <div class="settings-panel" id="panel-light" hidden>
-          <fieldset>
-            <legend>光・計算条件</legend>
-            <label>波長 [nm]
-              <input type="number" id="wavelength" value="550"
-                     min="400" max="700" step="any" required>
-            </label>
-            <label>入射角 CRA [°]
-              <input type="number" id="incident-angle" value="0"
-                     min="0" max="35" step="any" required>
-            </label>
-            <label>PD面の深さ（Si上面から）[µm]
-              <input type="number" id="pd-depth" value="0.5"
-                     min="0.1" max="5" step="any">
-            </label>
-            <label>メッシュ解像度 [セル/µm]
-              <input type="number" id="resolution" value="100"
-                     min="20" max="400" step="any">
-            </label>
-            <p class="field-note">3D計算（真上ビュー）を試すときは、まず
-              40〜50に下げると数分で傾向を確認できます（精度が足りない
-              場合は実行時に注意が表示されます）。</p>
           </fieldset>
         </div>
 
