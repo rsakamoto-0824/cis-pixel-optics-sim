@@ -370,6 +370,64 @@ function renderBatchResult(jobId, result) {
 
 // ---- ジョブ履歴 ----
 
+function addActionButton(cell, labelText, onClick) {
+  const button = document.createElement("button");
+  button.className = "link-button";
+  button.textContent = labelText;
+  button.addEventListener("click", onClick);
+  cell.appendChild(button);
+}
+
+// ジョブ名のセルを入力欄に切り替え、Enterまたは欄外クリックで保存する
+function startRenameJob(nameCell, job) {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = job.name;
+  input.maxLength = 60;
+  input.style.width = "95%";
+  nameCell.innerHTML = "";
+  nameCell.appendChild(input);
+  input.focus();
+  input.select();
+
+  const save = async () => {
+    const newName = input.value.trim();
+    if (newName && newName !== job.name) {
+      try {
+        await postJson(`/api/jobs/${job.job_id}/name`, { name: newName });
+      } catch (error) {
+        showMessage(error.message, "error");
+      }
+    }
+    refreshJobList();
+  };
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") input.blur();
+    if (event.key === "Escape") {
+      input.value = job.name; // 元の名前に戻してから保存（変更なし扱い）
+      input.blur();
+    }
+  });
+  input.addEventListener("blur", save);
+}
+
+async function deleteJob(job) {
+  const confirmed = window.confirm(
+    `ジョブ「${job.name}」を削除します。計算結果も消えます。よろしいですか？`);
+  if (!confirmed) return;
+  try {
+    const response = await fetch(`/api/jobs/${job.job_id}`,
+                                 { method: "DELETE" });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      showMessage(data.detail || "削除できませんでした", "error");
+    }
+  } catch (error) {
+    showMessage("削除できませんでした", "error");
+  }
+  refreshJobList();
+}
+
 async function refreshJobList() {
   try {
     const response = await fetch("/api/jobs");
@@ -382,32 +440,36 @@ async function refreshJobList() {
         failed: "失敗", cancelled: "中断",
       }[job.status] || job.status;
 
+      // ジョブ名の下にIDを小さく表示する（結果フォルダを探すときの手がかり）。
+      // 名前が未設定でIDと同じときは二重表示になるため省く
+      const idSub = job.name === job.job_id ? ""
+        : `<div class="job-id-sub">${escapeHtml(job.job_id)}</div>`;
       row.innerHTML = `
-        <td>${job.job_id}</td>
+        <td class="job-name" title="${escapeHtml(job.job_id)}">
+          ${escapeHtml(job.name)}${idSub}
+        </td>
         <td class="status-${job.status}">${statusLabel}</td>
         <td>${job.elapsed_seconds ?? "—"}</td>
         <td></td>
       `;
+      const nameCell = row.querySelector(".job-name");
       const actionCell = row.querySelector("td:last-child");
       if (job.status === "finished") {
-        const viewButton = document.createElement("button");
-        viewButton.className = "link-button";
-        viewButton.textContent = "結果を表示";
-        viewButton.addEventListener("click", async () => {
+        addActionButton(actionCell, "結果を表示", async () => {
           const jobResponse = await fetch(`/api/jobs/${job.job_id}`);
           const detail = await jobResponse.json();
           if (detail.result) renderResult(job.job_id, detail.result);
         });
-        actionCell.appendChild(viewButton);
       } else if (job.status === "running") {
-        const cancelButton = document.createElement("button");
-        cancelButton.className = "link-button";
-        cancelButton.textContent = "中断";
-        cancelButton.addEventListener("click", async () => {
+        addActionButton(actionCell, "中断", async () => {
           await fetch(`/api/jobs/${job.job_id}/cancel`, { method: "POST" });
           refreshJobList();
         });
-        actionCell.appendChild(cancelButton);
+      }
+      addActionButton(actionCell, "名前変更",
+                      () => startRenameJob(nameCell, job));
+      if (job.status !== "running") {
+        addActionButton(actionCell, "削除", () => deleteJob(job));
       }
       jobTableBody.appendChild(row);
     }

@@ -15,7 +15,8 @@ from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 from app import job_manager, result_plotter
-from app.constants import HOST, JOBS_DIR, PORT, STATIC_DIR
+from app.constants import (HOST, JOB_NAME_MAX_LENGTH, JOBS_DIR, PORT,
+                           STATIC_DIR)
 from engine import fdtd_worker
 
 mp.verbosity(0)  # Meepのログはworker.log側に集約し、サーバーログを汚さない
@@ -48,6 +49,27 @@ def index():
     return FileResponse(STATIC_DIR / "index.html")
 
 
+def build_default_job_name(params):
+    """内容が一目で分かる既定のジョブ名を作る（後から画面で変更可能）。"""
+    parts = []
+    if params.get("batch"):
+        parts.append(f"CSV一括{len(params['batch']['cases'])}条件")
+    elif params.get("sweep"):
+        label = fdtd_worker.SWEEP_PARAMETER_LABELS.get(
+            params["sweep"]["parameter"], params["sweep"]["parameter"])
+        parts.append(f"スイープ {label}")
+    if params["mode"] == "3d":
+        parts.append("3D真上ビュー")
+    if params["crosstalk"]:
+        parts.append("受光内訳")
+    parts.append(f"{params['pixel_pitch_um']:g}µm画素")
+    parts.append(f"{params['source']['wavelength_nm']:g}nm")
+    angle = params["source"]["incident_angle_deg"]
+    if angle:
+        parts.append(f"CRA{angle:g}°")
+    return " ".join(parts)
+
+
 @app.post("/api/jobs")
 async def create_job(request: Request):
     """パラメータを検証してジョブを起動する。"""
@@ -62,7 +84,7 @@ async def create_job(request: Request):
         warnings = fdtd_worker.collect_warnings(params)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
-    job_id = job_manager.create_job(params)
+    job_id = job_manager.create_job(params, build_default_job_name(params))
     return {"job_id": job_id, "warnings": warnings}
 
 
@@ -150,6 +172,32 @@ def cancel_job(job_id: str):
     if not job_manager.cancel_job(job_id):
         raise HTTPException(status_code=400, detail="中断できませんでした")
     return {"cancelled": True}
+
+
+@app.post("/api/jobs/{job_id}/name")
+async def rename_job(job_id: str, request: Request):
+    """ジョブ名を変更する。"""
+    body = await request.json()
+    new_name = str(body.get("name", "")).strip()
+    if not new_name:
+        raise HTTPException(status_code=400, detail="ジョブ名が空です")
+    if len(new_name) > JOB_NAME_MAX_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"ジョブ名は{JOB_NAME_MAX_LENGTH}文字以内にしてください")
+    if not job_manager.rename_job(job_id, new_name):
+        raise HTTPException(status_code=404, detail="ジョブが見つかりません")
+    return {"name": new_name}
+
+
+@app.delete("/api/jobs/{job_id}")
+def delete_job(job_id: str):
+    """ジョブを削除する（実行中は不可）。"""
+    deleted, reason = job_manager.delete_job(job_id)
+    if not deleted:
+        status_code = 404 if reason == "ジョブが見つかりません" else 400
+        raise HTTPException(status_code=status_code, detail=reason)
+    return {"deleted": True}
 
 
 @app.post("/api/preview")

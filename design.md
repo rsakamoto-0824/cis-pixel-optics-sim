@@ -153,6 +153,8 @@ cis-pixel-optics-sim/
 | GET | /api/jobs/{id}/sweep-plot | スイープ結果グラフPNG |
 | GET | /api/jobs/{id}/csv | 結果CSV（batch.csv があればそれを、なければ sweep.csv を返す） |
 | POST | /api/jobs/{id}/cancel | 実行中ジョブの中断 |
+| POST | /api/jobs/{id}/name | ジョブ名の変更（meta.jsonのname。60文字以内） |
+| DELETE | /api/jobs/{id} | ジョブの削除（フォルダごと。実行中は400） |
 | POST | /api/preview | 構造断面プレビュー生成 |
 | GET | /api/batch-template | CSV一括計算のテンプレートCSV |
 
