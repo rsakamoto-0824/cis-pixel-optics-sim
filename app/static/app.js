@@ -5,6 +5,9 @@ const JOB_POLL_INTERVAL_MS = 2000;
 // ジョブ履歴の折りたたみ状態を保存するlocalStorageキー
 const JOB_HISTORY_COLLAPSED_KEY = "jobHistoryCollapsed";
 
+// 設定タブの選択状態を保存するlocalStorageキー
+const SETTINGS_ACTIVE_TAB_KEY = "settingsActiveTab";
+
 const form = document.getElementById("parameter-form");
 const previewButton = document.getElementById("preview-button");
 const runButton = document.getElementById("run-button");
@@ -25,6 +28,29 @@ let pollTimerId = null;
 function numberValue(id) {
   return parseFloat(document.getElementById(id).value);
 }
+
+// ---- 設定タブ ----
+
+const settingsTabButtons = [...document.querySelectorAll(".settings-tab")];
+
+function activateSettingsTab(panelId) {
+  const exists = settingsTabButtons.some(
+    (button) => button.dataset.panel === panelId);
+  if (!exists) panelId = settingsTabButtons[0].dataset.panel;
+  for (const button of settingsTabButtons) {
+    const active = button.dataset.panel === panelId;
+    button.classList.toggle("active", active);
+    document.getElementById(button.dataset.panel).hidden = !active;
+  }
+  localStorage.setItem(SETTINGS_ACTIVE_TAB_KEY, panelId);
+}
+
+for (const button of settingsTabButtons) {
+  button.addEventListener("click",
+                          () => activateSettingsTab(button.dataset.panel));
+}
+activateSettingsTab(localStorage.getItem(SETTINGS_ACTIVE_TAB_KEY)
+                    || settingsTabButtons[0].dataset.panel);
 
 function collectSweep() {
   if (!document.getElementById("sweep-enabled").checked) return null;
@@ -140,6 +166,13 @@ previewButton.addEventListener("click", async () => {
 });
 
 // ---- 計算実行 ----
+
+// 非表示タブ内の入力エラーで送信が黙って失敗しないよう、
+// エラーになった入力があるタブへ自動で切り替える
+form.addEventListener("invalid", (event) => {
+  const panel = event.target.closest(".settings-panel");
+  if (panel && panel.hidden) activateSettingsTab(panel.id);
+}, true);
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();

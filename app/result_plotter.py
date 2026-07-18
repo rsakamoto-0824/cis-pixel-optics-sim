@@ -18,6 +18,21 @@ CROSS_SECTION_DPI = 150
 COLOR_FILTER_BAND_COLOR = "#ff8c00"
 COLOR_FILTER_BAND_ALPHA = 0.35
 
+# 構造図の色分け: 空気（誘電率≈1）は背景色にして、OCLなどの材料と
+# 見分けやすくする。この値未満の誘電率を空気とみなす
+AIR_EPSILON_THRESHOLD = 1.05
+AIR_BACKGROUND_COLOR = "white"
+STRUCTURE_COLORMAP = "viridis"
+
+
+def draw_structure(ax, epsilon_transposed, extent):
+    """構造（誘電率）を描く。空気は背景色で塗り、材料だけに色を付ける。"""
+    masked = np.ma.masked_less(epsilon_transposed, AIR_EPSILON_THRESHOLD)
+    colormap = plt.get_cmap(STRUCTURE_COLORMAP).copy()
+    colormap.set_bad(AIR_BACKGROUND_COLOR)
+    return ax.imshow(masked, origin="lower", extent=extent,
+                     cmap=colormap, aspect="equal")
+
 
 def draw_color_filter_band(ax, cf_bottom_y, cf_top_y, si_top_y):
     """カラーフィルタ層を半透明の帯で塗り、凡例用のラベルを付ける。
@@ -49,8 +64,7 @@ def plot_cross_section(job_dir):
     figure, (ax_structure, ax_intensity, ax_silicon) = plt.subplots(
         1, 3, figsize=(13, 6))
 
-    ax_structure.imshow(data["epsilon"].T, origin="lower", extent=extent,
-                        cmap="binary", aspect="equal")
+    draw_structure(ax_structure, data["epsilon"].T, extent)
     if "cf_top_y" in data:
         draw_color_filter_band(ax_structure, data["ar_top_y"],
                                data["cf_top_y"], si_top_y)
@@ -167,9 +181,8 @@ def plot_structure_preview(epsilon, x_um, y_um, layer_info):
     extent = [x_um[0], x_um[-1], y_um[0], y_um[-1]]
 
     figure, ax = plt.subplots(figsize=(5, 6))
-    image = ax.imshow(epsilon.T, origin="lower", extent=extent,
-                      cmap="viridis", aspect="equal")
-    ax.axhline(0.0, color="white", linewidth=0.8, linestyle="--",
+    image = draw_structure(ax, epsilon.T, extent)
+    ax.axhline(0.0, color="gray", linewidth=0.8, linestyle="--",
                label="Si上面")
     draw_color_filter_band(ax, layer_info["ar_top"], layer_info["cf_top"],
                            si_top_y)
