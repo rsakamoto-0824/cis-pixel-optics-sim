@@ -126,6 +126,9 @@ DEFAULT_PARAMS = {
         "shape": "spherical_cap",  # spherical_cap / superellipse
         "superellipse_exponent": 2.5,
         "sharing": "single",       # single / shared2 / shared4
+        # 混在パターン（2Dのみ）: ["single", "shared2", ...] を左から並べる。
+        # 指定すると共有方式（sharing）より優先される。Noneなら未使用
+        "pattern": None,
         "offset_um": 0.0,  # 偏心: フットプリント固定のまま頂点位置をずらす
         # レンズ底面の下に残る同一樹脂の平坦層（光路長の調整用）。
         # レンズ最低部からカラーフィルタまでの厚み = base_um + 平坦化膜厚
@@ -139,7 +142,7 @@ DEFAULT_PARAMS = {
         "planarization_um": 0.1,
         "color_filter_um": 0.6,
         "ar_um": 0.1,
-        "si_um": 3.0,
+        "si_um": 3.5,
     },
     "materials": {
         "ocl_n": materials.DEFAULT_OCL_N,
@@ -295,6 +298,29 @@ def validate_params(params):
             errors.append(f"未知のレンズ形状です: {params['ocl']['shape']}")
         if params["ocl"]["sharing"] not in ("single", "shared2", "shared4"):
             errors.append(f"未知のOCL共有方式です: {params['ocl']['sharing']}")
+
+    # OCL混在パターン（2Dのみ。共有方式より優先される）
+    pattern = params["ocl"].get("pattern")
+    if pattern:
+        invalid_entries = [entry for entry in pattern
+                           if entry not in ("single", "shared2", "shared4")]
+        if invalid_entries:
+            errors.append(
+                "OCL混在パターンに使えない値があります: "
+                + ", ".join(str(entry) for entry in invalid_entries)
+                + "（1=共有なし、2=2画素共有、4=4画素共有 で指定してください）")
+        if len(pattern) > structure_builder.MAX_PATTERN_UNITS:
+            errors.append(
+                f"OCL混在パターンのレンズ数が多すぎます: {len(pattern)}枚"
+                f"（最大 {structure_builder.MAX_PATTERN_UNITS} 枚）")
+        if params["mode"] == "3d":
+            errors.append("OCL混在パターンは現在2Dモードのみ対応しています")
+        if params["crosstalk"]:
+            errors.append(
+                "受光内訳の評価とOCL混在パターンは同時に使えません"
+                "（混在時は通常計算で画素ごとの内訳を確認してください）")
+        if not params["ocl"]["enabled"]:
+            errors.append("OCL混在パターンは「OCLあり」のときに指定してください")
     if (params["crosstalk"] and params["mode"] == "3d"
             and params["ocl"]["sharing"] != "single"):
         errors.append("3Dの受光内訳・クロストーク評価は1画素1レンズのみ対応しています")
@@ -314,10 +340,17 @@ def validate_params(params):
                     f"OCL{side}ギャップ高さは現在2Dモードのみ対応しています")
 
     # OCL偏心はフットプリント固定で頂点だけをずらすため、レンズ半幅未満に限る
+    # （混在パターンでは一番小さいレンズの半幅を基準にする）
     ocl_offset = params["ocl"]["offset_um"]
-    lens_half_width = (params["pixel_pitch_um"] / 2.0
-                       if params["ocl"]["sharing"] == "single"
-                       else params["pixel_pitch_um"])
+    if pattern and not any(e not in ("single", "shared2", "shared4")
+                           for e in pattern):
+        has_single = "single" in pattern
+        lens_half_width = (params["pixel_pitch_um"] / 2.0 if has_single
+                           else params["pixel_pitch_um"])
+    else:
+        lens_half_width = (params["pixel_pitch_um"] / 2.0
+                           if params["ocl"]["sharing"] == "single"
+                           else params["pixel_pitch_um"])
     if abs(ocl_offset) >= lens_half_width and params["ocl"]["enabled"]:
         errors.append(
             f"OCL偏心 {ocl_offset} µm はレンズ半幅"

@@ -30,6 +30,9 @@ CROSSTALK_LATERAL_MARGIN_UM = 0.5  # 最外画素と横方向PMLの間の余白
 NUM_PIXELS_2D = {"single": 1, "shared2": 2, "shared4": 2}
 UNIT_PIXELS_3D = {"single": (1, 1), "shared2": (2, 1), "shared4": (2, 2)}
 
+# OCL混在パターンの最大レンズ数（2Dセル幅が広くなりすぎない範囲）
+MAX_PATTERN_UNITS = 8
+
 
 # ---- 共通ヘルパー ----
 
@@ -149,6 +152,25 @@ def pixel_boundary_positions_um(pixel_pitch_um, num_pixels, placement,
     return positions
 
 
+def pixel_boundary_positions_mixed_um(pixel_pitch_um, unit_pixel_counts,
+                                      placement):
+    """混在パターン用のDTI境界位置リストを返す（セル中心を0とする）。
+
+    「共有単位境界のみ」では、レンズ単位の境目（両端含む）にだけ溝を置く。
+    """
+    total_pixels = sum(unit_pixel_counts)
+    half_extent = pixel_pitch_um * total_pixels / 2.0
+    if placement == "shared_only":
+        positions = [-half_extent]
+        x = -half_extent
+        for count in unit_pixel_counts:
+            x += pixel_pitch_um * count
+            positions.append(x)
+        return positions
+    return [-half_extent + i * pixel_pitch_um
+            for i in range(total_pixels + 1)]
+
+
 # ---- 2Dモード ----
 
 def build_lens_prism_2d(center_x_um, base_y_um, half_width_um, height_um,
@@ -178,11 +200,25 @@ def build_lens_prism_2d(center_x_um, base_y_um, half_width_um, height_um,
                     material=medium)
 
 
+def lens_unit_pixel_counts_2d(params):
+    """レンズ1枚ごとの画素数リストを返す（左から順）。
+
+    混在パターン（ocl.pattern）が指定されていればそれに従い、
+    未指定なら共有方式1種類（従来どおりレンズ1枚）になる。
+    shared2/shared4はいずれも2D断面では2画素幅（shared4は近似）。
+    """
+    pattern = params["ocl"].get("pattern")
+    if pattern:
+        return [NUM_PIXELS_2D[entry] for entry in pattern]
+    return [NUM_PIXELS_2D[params["ocl"]["sharing"]]]
+
+
 def lens_layout_2d(params, crosstalk):
-    """2Dモードのレンズ中心位置と半幅、画素数を返す。
+    """2Dモードのレンズ配置（中心と半幅のリスト）と画素数を返す。
 
     レンズのフットプリント（底面の範囲）は画素に固定する。
     偏心（ocl.offset_um）は頂点位置のずれとしてプリズム生成時に反映する。
+    戻り値: (num_pixels, [(center_x, half_width), ...])
     """
     pitch = params["pixel_pitch_um"]
     sharing = params["ocl"]["sharing"]
@@ -192,21 +228,20 @@ def lens_layout_2d(params, crosstalk):
         unit_pixels = NUM_PIXELS_2D[sharing]
         unit_width = pitch * unit_pixels
         num_pixels = CROSSTALK_GRID_PIXELS * unit_pixels
-        lens_centers = [unit_width * (i - (CROSSTALK_GRID_PIXELS - 1) / 2.0)
-                        for i in range(CROSSTALK_GRID_PIXELS)]
-        lens_half_width = unit_width / 2.0
-        return num_pixels, lens_centers, lens_half_width
-    num_pixels = NUM_PIXELS_2D[sharing]
-    if sharing == "single":
-        lens_centers = [pitch * (i - (num_pixels - 1) / 2.0)
-                        for i in range(num_pixels)]
-        lens_half_width = pitch / 2.0
-    else:
-        # shared2/shared4は2画素分の幅を持つ1枚のレンズ
-        # （shared4の2Dモードは2×2レンズ中央断面の近似）
-        lens_centers = [0.0]
-        lens_half_width = pitch
-    return num_pixels, lens_centers, lens_half_width
+        lenses = [(unit_width * (i - (CROSSTALK_GRID_PIXELS - 1) / 2.0),
+                   unit_width / 2.0)
+                  for i in range(CROSSTALK_GRID_PIXELS)]
+        return num_pixels, lenses
+    # 通常モード: 混在パターン対応（未指定なら従来どおりレンズ1枚）
+    unit_counts = lens_unit_pixel_counts_2d(params)
+    num_pixels = sum(unit_counts)
+    lenses = []
+    left_edge = -pitch * num_pixels / 2.0
+    for count in unit_counts:
+        unit_width = pitch * count
+        lenses.append((left_edge + unit_width / 2.0, unit_width / 2.0))
+        left_edge += unit_width
+    return num_pixels, lenses
 
 
 def build_structure_2d(params, media):
@@ -219,8 +254,7 @@ def build_structure_2d(params, media):
     crosstalk = params["crosstalk"]
     heights = compute_stack_heights(params)
 
-    num_pixels, lens_centers, lens_half_width = lens_layout_2d(params,
-                                                               crosstalk)
+    num_pixels, lenses = lens_layout_2d(params, crosstalk)
     pixels_width = pitch * num_pixels
     if crosstalk:
         # 中央照射のためBloch周期は使えず、横方向もPMLで閉じる
@@ -271,10 +305,10 @@ def build_structure_2d(params, media):
         wrap_shifts = [0.0]
 
     if params["ocl"]["enabled"]:
-        for center_x in lens_centers:
+        for center_x, half_width in lenses:
             geometry.append(build_lens_prism_2d(
                 center_x, to_cell_y(heights["lens_base"]),
-                lens_half_width, params["ocl"]["height_um"],
+                half_width, params["ocl"]["height_um"],
                 params["ocl"]["shape"],
                 params["ocl"]["superellipse_exponent"], media["ocl"],
                 apex_offset_um=params["ocl"]["offset_um"],
@@ -286,9 +320,14 @@ def build_structure_2d(params, media):
     dti = params["dti"]
     unit_pixels = NUM_PIXELS_2D[sharing]
     if dti["enabled"] and dti["depth_um"] > 0.0:
-        boundary_xs = pixel_boundary_positions_um(
-            pitch, num_pixels, dti["placement"], sharing,
-            unit_pixels=unit_pixels)
+        if params["ocl"].get("pattern") and not crosstalk:
+            boundary_xs = pixel_boundary_positions_mixed_um(
+                pitch, lens_unit_pixel_counts_2d(params),
+                dti["placement"])
+        else:
+            boundary_xs = pixel_boundary_positions_um(
+                pitch, num_pixels, dti["placement"], sharing,
+                unit_pixels=unit_pixels)
         for x in boundary_xs:
             for shift in wrap_shifts:
                 geometry.append(mp.Block(

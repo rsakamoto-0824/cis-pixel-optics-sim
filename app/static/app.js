@@ -64,6 +64,17 @@ function collectSweep() {
   };
 }
 
+function collectOclPattern() {
+  const text = document.getElementById("ocl-pattern").value.trim();
+  if (!text) return null;
+  const tokenToSharing = { "1": "single", "2": "shared2", "4": "shared4" };
+  return text.split(",")
+    .map((token) => token.trim())
+    .filter((token) => token !== "")
+    // 不明な値はそのまま送り、サーバー側の日本語エラーに任せる
+    .map((token) => tokenToSharing[token] || token);
+}
+
 function collectParams() {
   // 通常は2D断面モード。真上ビューを有効にしたときだけ3Dで計算する
   // （2026-07-18 ユーザー指示。観察深さが空欄ならPD面と同じ深さ）
@@ -81,6 +92,7 @@ function collectParams() {
       shape: document.getElementById("ocl-shape").value,
       superellipse_exponent: numberValue("ocl-superellipse-exponent"),
       sharing: document.getElementById("ocl-sharing").value,
+      pattern: collectOclPattern(),
       offset_um: numberValue("ocl-offset"),
       base_um: numberValue("ocl-base"),
       gap_height_left_um: numberValue("ocl-gap-left"),
