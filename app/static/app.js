@@ -2,6 +2,9 @@
 
 const JOB_POLL_INTERVAL_MS = 2000;
 
+// ジョブ履歴の折りたたみ状態を保存するlocalStorageキー
+const JOB_HISTORY_COLLAPSED_KEY = "jobHistoryCollapsed";
+
 const form = document.getElementById("parameter-form");
 const previewButton = document.getElementById("preview-button");
 const runButton = document.getElementById("run-button");
@@ -11,6 +14,11 @@ const formMessage = document.getElementById("form-message");
 const previewArea = document.getElementById("preview-area");
 const resultArea = document.getElementById("result-area");
 const jobTableBody = document.getElementById("job-table-body");
+const selectAllCheckbox = document.getElementById("select-all-jobs");
+const deleteSelectedButton = document.getElementById("delete-selected-button");
+const deleteAllButton = document.getElementById("delete-all-button");
+const jobHistoryBody = document.getElementById("job-history-body");
+const jobHistoryToggle = document.getElementById("job-history-toggle");
 
 let pollTimerId = null;
 
@@ -428,6 +436,64 @@ async function deleteJob(job) {
   refreshJobList();
 }
 
+// ---- ジョブ履歴の折りたたみ・一括削除 ----
+
+function applyJobHistoryCollapsed(collapsed) {
+  jobHistoryBody.hidden = collapsed;
+  jobHistoryToggle.textContent = collapsed ? "表示" : "隠す";
+}
+
+jobHistoryToggle.addEventListener("click", () => {
+  const collapsed = !jobHistoryBody.hidden;
+  localStorage.setItem(JOB_HISTORY_COLLAPSED_KEY, collapsed ? "1" : "0");
+  applyJobHistoryCollapsed(collapsed);
+});
+
+selectAllCheckbox.addEventListener("change", () => {
+  // 実行中のジョブは削除できないため選択対象から外れている（disabled）
+  for (const checkbox of jobTableBody.querySelectorAll(
+      ".job-select:not(:disabled)")) {
+    checkbox.checked = selectAllCheckbox.checked;
+  }
+});
+
+async function bulkDeleteJobs(requestBody, confirmText) {
+  if (!window.confirm(confirmText)) return;
+  try {
+    const response = await postJson("/api/jobs/bulk-delete", requestBody);
+    const data = await response.json();
+    let message = `${data.deleted}件のジョブを削除しました`;
+    if (data.skipped > 0) {
+      message += `（実行中などの${data.skipped}件はスキップ）`;
+    }
+    showMessage(message, "warning");
+  } catch (error) {
+    showMessage(error.message, "error");
+  }
+  selectAllCheckbox.checked = false;
+  refreshJobList();
+}
+
+deleteSelectedButton.addEventListener("click", () => {
+  const selectedIds = [...jobTableBody.querySelectorAll(".job-select:checked")]
+    .map((checkbox) => checkbox.dataset.jobId);
+  if (selectedIds.length === 0) {
+    showMessage("削除するジョブにチェックを入れてください", "error");
+    return;
+  }
+  bulkDeleteJobs(
+    { job_ids: selectedIds },
+    `選択した${selectedIds.length}件のジョブを削除します。` +
+      "計算結果も消えます。よろしいですか？");
+});
+
+deleteAllButton.addEventListener("click", () => {
+  bulkDeleteJobs(
+    { all: true },
+    "すべてのジョブを削除します（実行中のジョブを除く）。" +
+      "計算結果も消えます。よろしいですか？");
+});
+
 async function refreshJobList() {
   try {
     const response = await fetch("/api/jobs");
@@ -444,7 +510,12 @@ async function refreshJobList() {
       // 名前が未設定でIDと同じときは二重表示になるため省く
       const idSub = job.name === job.job_id ? ""
         : `<div class="job-id-sub">${escapeHtml(job.job_id)}</div>`;
+      const selectDisabled = job.status === "running" ? "disabled" : "";
       row.innerHTML = `
+        <td class="select-column">
+          <input type="checkbox" class="job-select" ${selectDisabled}
+                 data-job-id="${escapeHtml(job.job_id)}">
+        </td>
         <td class="job-name" title="${escapeHtml(job.job_id)}">
           ${escapeHtml(job.name)}${idSub}
         </td>
@@ -478,4 +549,6 @@ async function refreshJobList() {
   }
 }
 
+applyJobHistoryCollapsed(
+  localStorage.getItem(JOB_HISTORY_COLLAPSED_KEY) === "1");
 refreshJobList();

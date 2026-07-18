@@ -245,13 +245,31 @@
         <p class="placeholder">「計算実行」を押すと結果がここに表示されます</p>
       </div>
 
-      <h2>ジョブ履歴</h2>
-      <table id="job-table">
-        <thead>
-          <tr><th>ジョブ名</th><th>状態</th><th>経過 [秒]</th><th>操作</th></tr>
-        </thead>
-        <tbody id="job-table-body"></tbody>
-      </table>
+      <div class="section-header">
+        <h2>ジョブ履歴</h2>
+        <button type="button" id="job-history-toggle"
+                class="link-button">隠す</button>
+      </div>
+      <div id="job-history-body">
+        <div class="job-history-controls">
+          <button type="button" id="delete-selected-button"
+                  class="link-button">選択したジョブを削除</button>
+          <button type="button" id="delete-all-button"
+                  class="link-button danger">すべてのジョブを削除</button>
+        </div>
+        <table id="job-table">
+          <thead>
+            <tr>
+              <th class="select-column">
+                <input type="checkbox" id="select-all-jobs"
+                       title="すべて選択／解除">
+              </th>
+              <th>ジョブ名</th><th>状態</th><th>経過 [秒]</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="job-table-body"></tbody>
+        </table>
+      </div>
     </section>
   </main>
 

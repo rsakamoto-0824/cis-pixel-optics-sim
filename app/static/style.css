@@ -199,6 +199,25 @@ td .link-button + .link-button { margin-left: 10px; }
   font-size: 0.7rem;
 }
 
+/* ジョブ履歴の見出しと「隠す／表示」ボタンを横並びにする */
+.section-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+/* 一括削除ボタンの行 */
+.job-history-controls {
+  margin: 4px 0 8px;
+  display: flex;
+  gap: 16px;
+}
+
+/* 全ジョブ削除など、取り消せない操作のボタンは赤系で警告する */
+.link-button.danger { color: var(--color-failed); }
+
+.select-column { width: 28px; }
+
 .spinner {
   display: inline-block;
   width: 14px;

@@ -155,6 +155,7 @@ cis-pixel-optics-sim/
 | POST | /api/jobs/{id}/cancel | 実行中ジョブの中断 |
 | POST | /api/jobs/{id}/name | ジョブ名の変更（meta.jsonのname。60文字以内） |
 | DELETE | /api/jobs/{id} | ジョブの削除（フォルダごと。実行中は400） |
+| POST | /api/jobs/bulk-delete | 一括削除。{"job_ids": [...]}=選択分、{"all": true}=全件。実行中はスキップし件数を返す |
 | POST | /api/preview | 構造断面プレビュー生成 |
 | GET | /api/batch-template | CSV一括計算のテンプレートCSV |
 
