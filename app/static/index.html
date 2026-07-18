@@ -169,6 +169,23 @@
         </fieldset>
 
         <fieldset>
+          <legend>真上ビュー（3D計算）</legend>
+          <label class="checkbox-label">
+            <input type="checkbox" id="topview-enabled">
+            真上からの光の強度分布を観察（3Dモードで計算）
+          </label>
+          <label>観察深さ（Si上面から）[µm]
+            <input type="number" id="topview-depth" min="0" max="10"
+                   step="any" placeholder="空欄 = PD面と同じ">
+          </label>
+          <p class="field-note">指定した深さの水平面を真上から見た光の
+            強度分布 |E|² を、断面図に加えて表示します。3D計算のため
+            2Dより大幅に時間がかかります。まずメッシュ解像度40〜50で
+            傾向を確認するのがおすすめです。OCL偏心・ギャップ高さ・
+            DTIオフセットは3Dでは未対応です（0にしてください）。</p>
+        </fieldset>
+
+        <fieldset>
           <legend>CSV一括計算</legend>
           <p class="field-note">CSVの1行を1条件として、まとめて計算します。
             CSVに書いた列だけが上書きされ、空欄・書いていない項目は画面の
@@ -202,8 +219,11 @@
           </label>
           <label>メッシュ解像度 [セル/µm]
             <input type="number" id="resolution" value="100"
-                   min="50" max="400" step="any">
+                   min="20" max="400" step="any">
           </label>
+          <p class="field-note">3D計算（真上ビュー）を試すときは、まず
+            40〜50に下げると数分で傾向を確認できます（精度が足りない
+            場合は実行時に注意が表示されます）。</p>
         </fieldset>
 
         <div class="button-row">
