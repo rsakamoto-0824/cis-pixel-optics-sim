@@ -110,6 +110,9 @@ BATCH_COLUMN_TYPES = {
 # CSV一括計算の条件名列（任意。結果CSVにそのまま出力する）
 BATCH_LABEL_COLUMN = "label"
 
+# RGB 3波長一括評価の色名（rgb_wavelengths_nm の並び順に対応）
+RGB_COLOR_NAMES = ("R", "G", "B")
+
 # CSV一括計算の最大条件数（1条件あたり数分かかるため上限を設ける）
 MAX_BATCH_CASES = 100
 
@@ -169,6 +172,10 @@ DEFAULT_PARAMS = {
     "view": {
         "depth_um": None,  # 真上ビューの深さ（未指定ならPD面と同じ）
     },
+    # RGB 3波長一括評価（任意）: Trueにすると波長欄の代わりに
+    # rgb_wavelengths_nm の3波長（R・G・B）を順に計算して比較する
+    "rgb": False,
+    "rgb_wavelengths_nm": [620.0, 550.0, 450.0],
     # Si内は波長が1/n（550 nmで約135 nm）に縮むため、空気基準ではなく
     # Si内波長を10セル以上で分解できる値にする（フレネル検証で確認済み）
     "resolution_pixels_per_um": 100,
@@ -413,6 +420,27 @@ def validate_params(params):
                 except ValueError as case_error:
                     errors.append(f"スイープ値 {value}: {case_error}")
                     break
+
+    # RGB 3波長一括評価
+    if params["rgb"]:
+        wavelengths = params["rgb_wavelengths_nm"]
+        if not isinstance(wavelengths, list) or len(wavelengths) != 3:
+            errors.append("RGB評価の波長はR・G・Bの3つで指定してください")
+        else:
+            low, high = PARAMETER_LIMITS["wavelength_nm"]
+            for color_name, wavelength in zip(RGB_COLOR_NAMES, wavelengths):
+                if not isinstance(wavelength, (int, float)):
+                    errors.append(
+                        f"RGB評価の{color_name}波長が数値ではありません: "
+                        f"{wavelength}")
+                elif not (low <= wavelength <= high):
+                    errors.append(
+                        f"RGB評価の{color_name}波長 {wavelength} nm が"
+                        f"範囲外です（許容 {low}〜{high}）")
+        if params.get("sweep"):
+            errors.append("RGB評価とパラメータスイープは同時に指定できません")
+        if params.get("batch"):
+            errors.append("RGB評価とCSV一括計算は同時に指定できません")
 
     if errors:
         raise ValueError("\n".join(errors))
@@ -910,7 +938,19 @@ def run_job(job_dir):
         "input": params,
         "warnings": warnings,
     }
-    if params["batch"]:
+    if params["rgb"]:
+        # RGB評価は「波長のスイープ」として実行し、結果も同じ形式で持つ
+        # （表示側が type: rgb を見てR・G・Bのラベルを付ける）
+        result["type"] = "rgb"
+        rgb_params = copy.deepcopy(params)
+        rgb_params["rgb"] = False
+        rgb_params["sweep"] = {
+            "parameter": "source.wavelength_nm",
+            "values": [float(v) for v in params["rgb_wavelengths_nm"]],
+        }
+        result["sweep"] = run_sweep(rgb_params, job_dir, progress_path,
+                                    start_time)
+    elif params["batch"]:
         result["type"] = "batch"
         result["batch"] = run_batch(params, job_dir, progress_path,
                                     start_time)

@@ -231,6 +231,24 @@ td .link-button + .link-button { margin-left: 10px; }
 /* 全ジョブ削除など、取り消せない操作のボタンは赤系で警告する */
 .link-button.danger { color: var(--color-failed); }
 
+/* ジョブ比較: 2つの結果を左右に並べる（狭い画面では縦に積む） */
+.compare-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.compare-column h3 {
+  font-size: 0.95rem;
+  margin: 0 0 8px;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 4px;
+}
+.compare-diff { margin: 4px 0 12px; }
+@media (max-width: 900px) {
+  .compare-columns { grid-template-columns: 1fr; }
+}
+
 .select-column { width: 28px; }
 
 /* 設定タブ: 入力欄をカテゴリごとに切り替えてスクロールを減らす */

@@ -187,6 +187,29 @@
               40〜50に下げると数分で傾向を確認できます（精度が足りない
               場合は実行時に注意が表示されます）。</p>
           </fieldset>
+          <fieldset>
+            <legend>RGB 3波長一括評価</legend>
+            <label class="checkbox-label">
+              <input type="checkbox" id="rgb-enabled">
+              R・G・Bの3波長をまとめて計算して比較
+            </label>
+            <label>R波長 [nm]
+              <input type="number" id="rgb-wavelength-r" value="620"
+                     min="400" max="700" step="any">
+            </label>
+            <label>G波長 [nm]
+              <input type="number" id="rgb-wavelength-g" value="550"
+                     min="400" max="700" step="any">
+            </label>
+            <label>B波長 [nm]
+              <input type="number" id="rgb-wavelength-b" value="450"
+                     min="400" max="700" step="any">
+            </label>
+            <p class="field-note">有効にすると、上の「波長」欄の代わりに
+              R・G・Bの3波長で順に計算し、色ごとの集光効率を表とグラフで
+              比較します（計算時間は約3倍）。パラメータスイープ・
+              CSV一括計算とは併用できません。</p>
+          </fieldset>
         </div>
 
         <div class="settings-panel" id="panel-evaluation" hidden>

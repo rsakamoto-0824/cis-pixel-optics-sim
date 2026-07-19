@@ -58,6 +58,8 @@ def build_default_job_name(params):
         label = fdtd_worker.SWEEP_PARAMETER_LABELS.get(
             params["sweep"]["parameter"], params["sweep"]["parameter"])
         parts.append(f"スイープ {label}")
+    elif params.get("rgb"):
+        parts.append("RGB3波長")
     if params["mode"] == "3d":
         parts.append("3D真上ビュー")
     if params["crosstalk"]:
@@ -65,7 +67,8 @@ def build_default_job_name(params):
     if params["ocl"].get("pattern"):
         parts.append(f"混在OCL{len(params['ocl']['pattern'])}枚")
     parts.append(f"{params['pixel_pitch_um']:g}µm画素")
-    parts.append(f"{params['source']['wavelength_nm']:g}nm")
+    if not params.get("rgb"):
+        parts.append(f"{params['source']['wavelength_nm']:g}nm")
     angle = params["source"]["incident_angle_deg"]
     if angle:
         parts.append(f"CRA{angle:g}°")
@@ -139,7 +142,8 @@ def get_job_sweep_plot(job_id: str):
     image_path = job_dir / "sweep_plot.png"
     if not image_path.exists():
         result = job_manager.get_job_result(job_id)
-        if not result or result.get("type") != "sweep":
+        # RGB 3波長一括評価も波長スイープとして同じグラフを使う
+        if not result or result.get("type") not in ("sweep", "rgb"):
             raise HTTPException(status_code=404,
                                 detail="スイープ結果がありません")
         result_plotter.plot_sweep(job_dir, result["sweep"])

@@ -3,8 +3,13 @@
 // 実行中ジョブの状態が自動で最新になるよう、一覧を定期更新する
 const JOB_LIST_REFRESH_INTERVAL_MS = 5000;
 
+// 比較で同時に選べるジョブ数（左右2カラム表示）
+const COMPARE_JOB_COUNT = 2;
+
 const jobTableBody = document.getElementById("job-table-body");
 const selectAllCheckbox = document.getElementById("select-all-jobs");
+const compareSelectedButton =
+  document.getElementById("compare-selected-button");
 const deleteSelectedButton = document.getElementById("delete-selected-button");
 const deleteAllButton = document.getElementById("delete-all-button");
 const historyMessage = document.getElementById("history-message");
@@ -86,6 +91,59 @@ async function deleteJob(job) {
   }
   refreshJobList();
 }
+
+// ---- ジョブ比較 ----
+
+// 単発計算どうしの比較のときだけ、集光効率（合計）の差を上部に表示する
+function comparisonDiffHtml(details) {
+  const [left, right] = details.map((detail) => detail.result);
+  if (left.type !== "single" || right.type !== "single") return "";
+  const diffPoints = (right.collection_efficiency_total
+                      - left.collection_efficiency_total) * 100;
+  const sign = diffPoints >= 0 ? "+" : "";
+  return `<p class="compare-diff">集光効率（合計）の差（右 − 左）:
+    <strong>${sign}${diffPoints.toFixed(1)}ポイント</strong></p>`;
+}
+
+function renderComparison(details) {
+  const columnsHtml = details.map((detail) => `
+    <div class="compare-column">
+      <h3>${escapeHtml(detail.name)}</h3>
+      <div class="compare-result"></div>
+    </div>`).join("");
+  historyResultArea.innerHTML =
+    comparisonDiffHtml(details)
+    + `<div class="compare-columns">${columnsHtml}</div>`;
+  const columnAreas = historyResultArea.querySelectorAll(".compare-result");
+  details.forEach((detail, index) => {
+    renderResult(detail.job_id, detail.result, columnAreas[index]);
+  });
+}
+
+compareSelectedButton.addEventListener("click", async () => {
+  const selectedIds = [...jobTableBody.querySelectorAll(".job-select:checked")]
+    .map((checkbox) => checkbox.dataset.jobId);
+  if (selectedIds.length !== COMPARE_JOB_COUNT) {
+    showMessage(
+      `比較するジョブをちょうど${COMPARE_JOB_COUNT}件選んでください`
+        + `（現在 ${selectedIds.length}件）`, "error");
+    return;
+  }
+  try {
+    const details = await Promise.all(selectedIds.map(async (jobId) => {
+      const response = await fetch(`/api/jobs/${jobId}`);
+      return response.json();
+    }));
+    if (details.some((detail) => !detail.result)) {
+      showMessage("完了したジョブ（結果があるもの）を選んでください", "error");
+      return;
+    }
+    historyMessage.hidden = true;
+    renderComparison(details);
+  } catch (error) {
+    showMessage("比較する結果を読み込めませんでした", "error");
+  }
+});
 
 // ---- 一括削除 ----
 
