@@ -222,7 +222,7 @@ def lens_layout_2d(params, crosstalk):
     """
     pitch = params["pixel_pitch_um"]
     sharing = params["ocl"]["sharing"]
-    if crosstalk:
+    if crosstalk and not params["ocl"].get("pattern"):
         # 受光内訳・クロストーク評価は共有レンズ単位×3（中央単位のみ照射）。
         # 1画素1レンズなら3画素、2画素/4画素共有なら6画素のセルになる
         unit_pixels = NUM_PIXELS_2D[sharing]
@@ -232,7 +232,9 @@ def lens_layout_2d(params, crosstalk):
                    unit_width / 2.0)
                   for i in range(CROSSTALK_GRID_PIXELS)]
         return num_pixels, lenses
-    # 通常モード: 混在パターン対応（未指定なら従来どおりレンズ1枚）
+    # 通常モード・混在パターン: レンズを左から順に並べる。
+    # 受光内訳評価で混在パターン指定時もこの配置を使い、中央のレンズ
+    # （偶数枚のときは中央右寄り）だけを照射する
     unit_counts = lens_unit_pixel_counts_2d(params)
     num_pixels = sum(unit_counts)
     lenses = []
@@ -320,7 +322,7 @@ def build_structure_2d(params, media):
     dti = params["dti"]
     unit_pixels = NUM_PIXELS_2D[sharing]
     if dti["enabled"] and dti["depth_um"] > 0.0:
-        if params["ocl"].get("pattern") and not crosstalk:
+        if params["ocl"].get("pattern"):
             boundary_xs = pixel_boundary_positions_mixed_um(
                 pitch, lens_unit_pixel_counts_2d(params),
                 dti["placement"])
@@ -338,15 +340,37 @@ def build_structure_2d(params, media):
 
     pixel_centers = [pitch * (i - (num_pixels - 1) / 2.0)
                      for i in range(num_pixels)]
+
+    # 受光内訳・クロストーク評価の照射範囲と「中央」画素の決定。
+    # 通常の共有方式では中央の共有レンズ単位（セル中心）を照射する。
+    # 混在パターンでは中央のレンズ（偶数枚のときは中央右寄り）を照射する
+    if crosstalk and params["ocl"].get("pattern"):
+        unit_counts = lens_unit_pixel_counts_2d(params)
+        center_unit = len(unit_counts) // 2
+        first_center_pixel = sum(unit_counts[:center_unit])
+        center_pixel_indices = list(range(
+            first_center_pixel, first_center_pixel + unit_counts[center_unit]))
+        source_center_x, source_half_width = lenses[center_unit]
+        source_width = 2.0 * source_half_width
+        unit_pixels = unit_counts[center_unit]
+    elif crosstalk:
+        center_pixel_indices = list(range(unit_pixels, 2 * unit_pixels))
+        source_center_x = 0.0
+        source_width = pitch * unit_pixels
+    else:
+        center_pixel_indices = None
+        source_center_x = 0.0
+        source_width = cell_width
+
     coords = {
         "cell_width_um": cell_width,
         "cell_height_um": cell_height,
         "num_pixels": num_pixels,
         "unit_pixels": unit_pixels,
         "pixel_centers_x": pixel_centers,
-        # クロストーク評価では中央の共有レンズ単位の幅だけを照射する
-        "source_width_um": (pitch * unit_pixels if crosstalk
-                            else cell_width),
+        "center_pixel_indices": center_pixel_indices,
+        "source_width_um": source_width,
+        "source_center_x_um": source_center_x,
         "source_y": to_cell_y(heights["source_height"]),
         "si_top_y": to_cell_y(0.0),
         "pd_monitor_y": to_cell_y(-params["pd"]["top_depth_um"]),

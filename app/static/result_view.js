@@ -21,13 +21,34 @@ function renderResult(jobId, result, targetArea) {
   const efficiencyPercent =
     (result.collection_efficiency_total * 100).toFixed(1);
   // 受光内訳（中央照射）のときは位置が分かる名前で表示する。
-  // 共有レンズでは単位内の画素番号を付ける（例: 中央-1, 中央-2）
+  // 照射したレンズの画素を「中央」とし、その左右を「左隣」「右隣」と呼ぶ
+  // （混在パターンでは中央レンズがセル中央の画素とは限らないため、
+  // 計算結果の center_pixel_indices を基準にする）。
+  // グループ内が複数画素のときは番号を付ける（例: 中央-1, 中央-2）
   const perPixelValues = result.collection_efficiency_per_pixel;
   const unitPixels = result.unit_pixels || 1;
-  const isBreakdown = (result.crosstalk_total !== undefined
-                       && perPixelValues.length === 3 * unitPixels);
+  const centerIndices = result.center_pixel_indices;
+  const hasBreakdownIndices = (result.crosstalk_total !== undefined
+                               && Array.isArray(centerIndices)
+                               && centerIndices.length > 0);
+  // 古い結果（center_pixel_indicesなし）向けの従来判定
+  const isLegacyBreakdown = (result.crosstalk_total !== undefined
+                             && perPixelValues.length === 3 * unitPixels);
   const pixelName = (index) => {
-    if (!isBreakdown) return `画素${index + 1}`;
+    if (hasBreakdownIndices) {
+      const first = Math.min(...centerIndices);
+      const last = Math.max(...centerIndices);
+      if (index < first) {
+        return first > 1 ? `左隣-${index + 1}` : "左隣";
+      }
+      if (index <= last) {
+        return centerIndices.length > 1
+          ? `中央-${index - first + 1}` : "中央";
+      }
+      const rightCount = perPixelValues.length - last - 1;
+      return rightCount > 1 ? `右隣-${index - last}` : "右隣";
+    }
+    if (!isLegacyBreakdown) return `画素${index + 1}`;
     const unitLabel = ["左隣", "中央", "右隣"][Math.floor(index / unitPixels)];
     if (unitPixels === 1) return unitLabel;
     return `${unitLabel}-${(index % unitPixels) + 1}`;
