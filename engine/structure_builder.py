@@ -391,24 +391,67 @@ def build_structure_2d(params, media):
 
 # ---- 3Dモード ----
 
+def lens_slice_bounds_x_um(z_from_base_um, half_width_um, height_um, shape,
+                           superellipse_exponent, apex_offset_um,
+                           gap_height_left_um, gap_height_right_um):
+    """高さzでのレンズ輪郭のX方向範囲 (x_min, x_max) を返す（レンズ中心基準）。
+
+    2Dの非対称プロファイル（偏心・ギャップ高さ）と同じ形状規則で、
+    頂点の左右それぞれの曲線を逆算して輪郭位置を求める。
+    端の高さ（ギャップ高さ）より低い位置では、その側はフットプリント端まで届く。
+    """
+    if z_from_base_um <= gap_height_right_um:
+        x_max = half_width_um
+    else:
+        side_half_width = half_width_um - apex_offset_um
+        scale = lens_contour_scale(
+            z_from_base_um - gap_height_right_um, side_half_width,
+            height_um - gap_height_right_um, shape, superellipse_exponent)
+        x_max = apex_offset_um + side_half_width * scale
+    if z_from_base_um <= gap_height_left_um:
+        x_min = -half_width_um
+    else:
+        side_half_width = half_width_um + apex_offset_um
+        scale = lens_contour_scale(
+            z_from_base_um - gap_height_left_um, side_half_width,
+            height_um - gap_height_left_um, shape, superellipse_exponent)
+        x_min = apex_offset_um - side_half_width * scale
+    return x_min, x_max
+
+
 def build_lens_slices_3d(center_x, center_y, base_z, half_width_x,
                          half_width_y, height, shape, superellipse_exponent,
-                         medium):
-    """3Dレンズを高さ方向のスライス（楕円柱Prism）の積み重ねで近似する。"""
+                         medium, apex_offset_um=0.0, gap_height_left_um=0.0,
+                         gap_height_right_um=0.0):
+    """3Dレンズを高さ方向のスライス（楕円柱Prism）の積み重ねで近似する。
+
+    偏心・ギャップ高さは2D断面と同じX方向に反映する。
+    Y方向の端の高さには左右ギャップ高さの平均を使う（左右差の傾きはX方向のみ）。
+    """
     slices = []
     slice_thickness = height / NUM_LENS_SLICES_3D
+    gap_height_y_um = (gap_height_left_um + gap_height_right_um) / 2.0
     for j in range(NUM_LENS_SLICES_3D):
         z_center_of_slice = (j + 0.5) * slice_thickness
-        scale = lens_contour_scale(z_center_of_slice, half_width_x, height,
-                                   shape, superellipse_exponent)
-        if scale <= 0.0:
+        x_min, x_max = lens_slice_bounds_x_um(
+            z_center_of_slice, half_width_x, height, shape,
+            superellipse_exponent, apex_offset_um,
+            gap_height_left_um, gap_height_right_um)
+        ax = (x_max - x_min) / 2.0
+        slice_center_x = center_x + (x_min + x_max) / 2.0
+        if z_center_of_slice <= gap_height_y_um:
+            ay = half_width_y
+        else:
+            scale_y = lens_contour_scale(
+                z_center_of_slice - gap_height_y_um, half_width_x,
+                height - gap_height_y_um, shape, superellipse_exponent)
+            ay = half_width_y * scale_y
+        if ax <= 0.0 or ay <= 0.0:
             break
-        ax = half_width_x * scale
-        ay = half_width_y * scale
         vertices = []
         for i in range(LENS_CONTOUR_POINTS_3D):
             angle = 2.0 * math.pi * i / LENS_CONTOUR_POINTS_3D
-            vertices.append(mp.Vector3(center_x + ax * math.cos(angle),
+            vertices.append(mp.Vector3(slice_center_x + ax * math.cos(angle),
                                        center_y + ay * math.sin(angle),
                                        base_z + j * slice_thickness))
         slices.append(mp.Prism(vertices, height=slice_thickness,
@@ -493,20 +536,32 @@ def build_structure_3d(params, media):
                 center_x, center_y, to_cell_z(heights["lens_base"]),
                 lens_half_widths[0], lens_half_widths[1],
                 params["ocl"]["height_um"], params["ocl"]["shape"],
-                params["ocl"]["superellipse_exponent"], media["ocl"]))
+                params["ocl"]["superellipse_exponent"], media["ocl"],
+                apex_offset_um=params["ocl"]["offset_um"],
+                gap_height_left_um=params["ocl"]["gap_height_left_um"],
+                gap_height_right_um=params["ocl"]["gap_height_right_um"]))
 
     # DTI: 画素境界に沿った格子状の溝（X方向・Y方向の壁の組み合わせ）
+    # 位置オフセット（dti.offset_um）は2Dと同じ+X方向に格子ごとずらす
     dti = params["dti"]
     unit_x, unit_y = UNIT_PIXELS_3D[sharing]
     if dti["enabled"] and dti["depth_um"] > 0.0:
+        # 周期境界（通常モード）では、はみ出した溝の周期像が自動では
+        # 作られないため、±セル幅にずらした複製を置いて再現する（2Dと同じ）
+        if not crosstalk and dti["offset_um"] != 0.0:
+            wrap_shifts = [-cell_x, 0.0, cell_x]
+        else:
+            wrap_shifts = [0.0]
         trench_center_z = to_cell_z(-dti["depth_um"] / 2.0)
         for x in pixel_boundary_positions_um(pitch, num_x, dti["placement"],
                                              sharing, unit_pixels=unit_x):
-            geometry.append(mp.Block(
-                size=mp.Vector3(dti["width_um"], pixels_width_y,
-                                dti["depth_um"]),
-                center=mp.Vector3(x, 0, trench_center_z),
-                material=media["dti"]))
+            for shift in wrap_shifts:
+                geometry.append(mp.Block(
+                    size=mp.Vector3(dti["width_um"], pixels_width_y,
+                                    dti["depth_um"]),
+                    center=mp.Vector3(x + dti["offset_um"] + shift, 0,
+                                      trench_center_z),
+                    material=media["dti"]))
         for y in pixel_boundary_positions_um(pitch, num_y, dti["placement"],
                                              sharing, unit_pixels=unit_y):
             geometry.append(mp.Block(
