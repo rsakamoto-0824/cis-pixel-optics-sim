@@ -19,212 +19,240 @@
   <main>
     <section class="panel" id="parameter-panel">
       <h2>計算パラメータ</h2>
+
+      <div class="settings-tabs" id="settings-tabs">
+        <button type="button" class="settings-tab"
+                data-panel="panel-structure">画素・層構造</button>
+        <button type="button" class="settings-tab"
+                data-panel="panel-ocl">OCL</button>
+        <button type="button" class="settings-tab"
+                data-panel="panel-dti">DTI</button>
+        <button type="button" class="settings-tab"
+                data-panel="panel-light">光・計算</button>
+        <button type="button" class="settings-tab"
+                data-panel="panel-evaluation">評価</button>
+        <button type="button" class="settings-tab"
+                data-panel="panel-sweep-csv">スイープ・CSV</button>
+      </div>
+
       <form id="parameter-form">
-        <fieldset>
-          <legend>画素</legend>
-          <label>画素サイズ [µm]
-            <input type="number" id="pixel-pitch" value="1.0"
-                   min="0.5" max="2.5" step="any" required>
-          </label>
-        </fieldset>
+        <div class="settings-panel" id="panel-structure" hidden>
+          <fieldset>
+            <legend>画素</legend>
+            <label>画素サイズ [µm]
+              <input type="number" id="pixel-pitch" value="1.0"
+                     min="0.5" max="2.5" step="any" required>
+            </label>
+          </fieldset>
 
-        <fieldset>
-          <legend>On Chip Lens（OCL）</legend>
-          <label class="checkbox-label">
-            <input type="checkbox" id="ocl-enabled" checked> OCLあり
-          </label>
-          <label>高さ [µm]
-            <input type="number" id="ocl-height" value="0.5"
-                   min="0.1" max="1.5" step="any">
-          </label>
-          <label>屈折率（レンズ材）
-            <input type="number" id="ocl-n" value="1.58"
-                   min="1.2" max="2.5" step="any">
-          </label>
-          <label>レンズ形状
-            <select id="ocl-shape">
-              <option value="spherical_cap" selected>球面キャップ</option>
-              <option value="superellipse">スーパー楕円</option>
-            </select>
-          </label>
-          <label>スーパー楕円指数
-            <input type="number" id="ocl-superellipse-exponent" value="2.5"
-                   min="1.5" max="8" step="any">
-          </label>
-          <label>共有方式
-            <select id="ocl-sharing">
-              <option value="single" selected>1画素1レンズ</option>
-              <option value="shared2">2画素共有</option>
-              <option value="shared4">4画素共有（2Dは近似）</option>
-            </select>
-          </label>
-          <label>中心オフセット（偏心）[µm]
-            <input type="number" id="ocl-offset" value="0"
-                   min="-1.25" max="1.25" step="any">
-          </label>
-          <p class="field-note">レンズの端（フットプリント）は画素に固定した
-            まま、頂点（楕円の中心）の位置だけを横にずらします。左右で裾の
-            緩急が変わる非対称な形になります。</p>
-          <label>左ギャップ高さ [µm]
-            <input type="number" id="ocl-gap-left" value="0"
-                   min="0" max="1.5" step="any">
-          </label>
-          <label>右ギャップ高さ [µm]
-            <input type="number" id="ocl-gap-right" value="0"
-                   min="0" max="1.5" step="any">
-          </label>
-          <p class="field-note">レンズ端（隣のレンズとのギャップ部分）の
-            高さです。左右で違う値にすると、レンズが傾いた状態の集光を
-            評価できます（レンズ高さ未満で指定）。</p>
-          <label>ベース層厚 [µm]
-            <input type="number" id="ocl-base" value="0"
-                   min="0" max="2" step="any">
-          </label>
-          <p class="field-note">レンズ底面の下に残る同じ樹脂の平坦層です
-            （光路長の調整用）。レンズの一番低い場所からカラーフィルタまでの
-            厚みは「ベース層 + 平坦化膜」になります。</p>
-        </fieldset>
+          <fieldset>
+            <legend>層構造（膜厚 [µm]）</legend>
+            <label>平坦化膜
+              <input type="number" id="layer-planarization" value="0.1"
+                     min="0" max="2" step="any">
+            </label>
+            <label>カラーフィルタ
+              <input type="number" id="layer-color-filter" value="0.6"
+                     min="0" max="2" step="any">
+            </label>
+            <label>反射防止膜・酸化膜
+              <input type="number" id="layer-ar" value="0.1"
+                     min="0" max="1" step="any">
+            </label>
+            <label>Si厚
+              <input type="number" id="layer-si" value="3.0"
+                     min="1" max="10" step="any">
+            </label>
+          </fieldset>
+        </div>
 
-        <fieldset>
-          <legend>層構造（膜厚 [µm]）</legend>
-          <label>平坦化膜
-            <input type="number" id="layer-planarization" value="0.1"
-                   min="0" max="2" step="any">
-          </label>
-          <label>カラーフィルタ
-            <input type="number" id="layer-color-filter" value="0.6"
-                   min="0" max="2" step="any">
-          </label>
-          <label>反射防止膜・酸化膜
-            <input type="number" id="layer-ar" value="0.1"
-                   min="0" max="1" step="any">
-          </label>
-          <label>Si厚
-            <input type="number" id="layer-si" value="3.0"
-                   min="1" max="10" step="any">
-          </label>
-        </fieldset>
+        <div class="settings-panel" id="panel-ocl" hidden>
+          <fieldset>
+            <legend>On Chip Lens（OCL）</legend>
+            <label class="checkbox-label">
+              <input type="checkbox" id="ocl-enabled" checked> OCLあり
+            </label>
+            <label>高さ [µm]
+              <input type="number" id="ocl-height" value="0.5"
+                     min="0.1" max="1.5" step="any">
+            </label>
+            <label>屈折率（レンズ材）
+              <input type="number" id="ocl-n" value="1.58"
+                     min="1.2" max="2.5" step="any">
+            </label>
+            <label>レンズ形状
+              <select id="ocl-shape">
+                <option value="spherical_cap" selected>球面キャップ</option>
+                <option value="superellipse">スーパー楕円</option>
+              </select>
+            </label>
+            <label>スーパー楕円指数
+              <input type="number" id="ocl-superellipse-exponent" value="2.5"
+                     min="1.5" max="8" step="any">
+            </label>
+            <label>共有方式
+              <select id="ocl-sharing">
+                <option value="single" selected>1画素1レンズ</option>
+                <option value="shared2">2画素共有</option>
+                <option value="shared4">4画素共有（2Dは近似）</option>
+              </select>
+            </label>
+            <label>中心オフセット（偏心）[µm]
+              <input type="number" id="ocl-offset" value="0"
+                     min="-1.25" max="1.25" step="any">
+            </label>
+            <p class="field-note">レンズの端（フットプリント）は画素に固定した
+              まま、頂点（楕円の中心）の位置だけを横にずらします。左右で裾の
+              緩急が変わる非対称な形になります。</p>
+            <label>左ギャップ高さ [µm]
+              <input type="number" id="ocl-gap-left" value="0"
+                     min="0" max="1.5" step="any">
+            </label>
+            <label>右ギャップ高さ [µm]
+              <input type="number" id="ocl-gap-right" value="0"
+                     min="0" max="1.5" step="any">
+            </label>
+            <p class="field-note">レンズ端（隣のレンズとのギャップ部分）の
+              高さです。左右で違う値にすると、レンズが傾いた状態の集光を
+              評価できます（レンズ高さ未満で指定）。</p>
+            <label>ベース層厚 [µm]
+              <input type="number" id="ocl-base" value="0"
+                     min="0" max="2" step="any">
+            </label>
+            <p class="field-note">レンズ底面の下に残る同じ樹脂の平坦層です
+              （光路長の調整用）。レンズの一番低い場所からカラーフィルタまでの
+              厚みは「ベース層 + 平坦化膜」になります。</p>
+          </fieldset>
+        </div>
 
-        <fieldset>
-          <legend>DTI（画素間分離）</legend>
-          <label class="checkbox-label">
-            <input type="checkbox" id="dti-enabled" checked> DTIあり
-          </label>
-          <label>幅 [µm]
-            <input type="number" id="dti-width" value="0.1"
-                   min="0.05" max="0.3" step="any">
-          </label>
-          <label>深さ [µm]
-            <input type="number" id="dti-depth" value="2.0"
-                   min="0" max="10" step="any">
-          </label>
-          <label>配置
-            <select id="dti-placement">
-              <option value="all" selected>全画素境界</option>
-              <option value="shared_only">共有単位境界のみ</option>
-            </select>
-          </label>
-          <label>位置オフセット [µm]
-            <input type="number" id="dti-offset" value="0"
-                   min="-1.25" max="1.25" step="any">
-          </label>
-        </fieldset>
+        <div class="settings-panel" id="panel-dti" hidden>
+          <fieldset>
+            <legend>DTI（画素間分離）</legend>
+            <label class="checkbox-label">
+              <input type="checkbox" id="dti-enabled" checked> DTIあり
+            </label>
+            <label>幅 [µm]
+              <input type="number" id="dti-width" value="0.1"
+                     min="0.05" max="0.3" step="any">
+            </label>
+            <label>深さ [µm]
+              <input type="number" id="dti-depth" value="2.0"
+                     min="0" max="10" step="any">
+            </label>
+            <label>配置
+              <select id="dti-placement">
+                <option value="all" selected>全画素境界</option>
+                <option value="shared_only">共有単位境界のみ</option>
+              </select>
+            </label>
+            <label>位置オフセット [µm]
+              <input type="number" id="dti-offset" value="0"
+                     min="-1.25" max="1.25" step="any">
+            </label>
+          </fieldset>
+        </div>
 
-        <fieldset>
-          <legend>受光内訳の評価</legend>
-          <label class="checkbox-label">
-            <input type="checkbox" id="breakdown-enabled">
-            画素ごとの受光強度を算出（中央のみ照射）
-          </label>
-          <p class="field-note">中央のレンズ単位だけに光を当て、各画素が
-            受け取った光の割合を求めます。2画素／4画素共有では中央の共有
-            レンズ（2画素分）を照射し、6画素の内訳を表示します。偏心や
-            位置ずれの影響確認に有効です。</p>
-        </fieldset>
+        <div class="settings-panel" id="panel-light" hidden>
+          <fieldset>
+            <legend>光・計算条件</legend>
+            <label>波長 [nm]
+              <input type="number" id="wavelength" value="550"
+                     min="400" max="700" step="any" required>
+            </label>
+            <label>入射角 CRA [°]
+              <input type="number" id="incident-angle" value="0"
+                     min="0" max="35" step="any" required>
+            </label>
+            <label>PD面の深さ（Si上面から）[µm]
+              <input type="number" id="pd-depth" value="0.5"
+                     min="0.1" max="5" step="any">
+            </label>
+            <label>メッシュ解像度 [セル/µm]
+              <input type="number" id="resolution" value="100"
+                     min="20" max="400" step="any">
+            </label>
+            <p class="field-note">3D計算（真上ビュー）を試すときは、まず
+              40〜50に下げると数分で傾向を確認できます（精度が足りない
+              場合は実行時に注意が表示されます）。</p>
+          </fieldset>
+        </div>
 
-        <fieldset>
-          <legend>パラメータスイープ</legend>
-          <label class="checkbox-label">
-            <input type="checkbox" id="sweep-enabled"> スイープ実行
-          </label>
-          <label>対象パラメータ
-            <select id="sweep-parameter">
-              <option value="source.incident_angle_deg" selected>入射角 CRA [°]</option>
-              <option value="source.wavelength_nm">波長 [nm]</option>
-              <option value="pixel_pitch_um">画素サイズ [µm]</option>
-              <option value="ocl.height_um">OCL高さ [µm]</option>
-              <option value="ocl.superellipse_exponent">スーパー楕円指数</option>
-              <option value="ocl.base_um">OCLベース層厚 [µm]</option>
-              <option value="ocl.offset_um">OCL偏心 [µm]</option>
-              <option value="ocl.gap_height_left_um">OCL左ギャップ高さ [µm]</option>
-              <option value="ocl.gap_height_right_um">OCL右ギャップ高さ [µm]</option>
-              <option value="materials.ocl_n">OCL屈折率</option>
-              <option value="dti.offset_um">DTIオフセット [µm]</option>
-              <option value="layers.color_filter_um">カラーフィルタ膜厚 [µm]</option>
-            </select>
-          </label>
-          <label>値リスト（カンマ区切り）
-            <input type="text" id="sweep-values" value="0, 10, 20, 30">
-          </label>
-        </fieldset>
+        <div class="settings-panel" id="panel-evaluation" hidden>
+          <fieldset>
+            <legend>受光内訳の評価</legend>
+            <label class="checkbox-label">
+              <input type="checkbox" id="breakdown-enabled">
+              画素ごとの受光強度を算出（中央のみ照射）
+            </label>
+            <p class="field-note">中央のレンズ単位だけに光を当て、各画素が
+              受け取った光の割合を求めます。2画素／4画素共有では中央の共有
+              レンズ（2画素分）を照射し、6画素の内訳を表示します。偏心や
+              位置ずれの影響確認に有効です。</p>
+          </fieldset>
 
-        <fieldset>
-          <legend>真上ビュー（3D計算）</legend>
-          <label class="checkbox-label">
-            <input type="checkbox" id="topview-enabled">
-            真上からの光の強度分布を観察（3Dモードで計算）
-          </label>
-          <label>観察深さ（Si上面から）[µm]
-            <input type="number" id="topview-depth" min="0" max="10"
-                   step="any" placeholder="空欄 = PD面と同じ">
-          </label>
-          <p class="field-note">指定した深さの水平面を真上から見た光の
-            強度分布 |E|² を、断面図に加えて表示します。3D計算のため
-            2Dより大幅に時間がかかります。まずメッシュ解像度40〜50で
-            傾向を確認するのがおすすめです。OCL偏心・ギャップ高さ・
-            DTIオフセットは3Dでは未対応です（0にしてください）。</p>
-        </fieldset>
+          <fieldset>
+            <legend>真上ビュー（3D計算）</legend>
+            <label class="checkbox-label">
+              <input type="checkbox" id="topview-enabled">
+              真上からの光の強度分布を観察（3Dモードで計算）
+            </label>
+            <label>観察深さ（Si上面から）[µm]
+              <input type="number" id="topview-depth" min="0" max="10"
+                     step="any" placeholder="空欄 = PD面と同じ">
+            </label>
+            <p class="field-note">指定した深さの水平面を真上から見た光の
+              強度分布 |E|² を、断面図に加えて表示します。3D計算のため
+              2Dより大幅に時間がかかります。まずメッシュ解像度40〜50で
+              傾向を確認するのがおすすめです。OCL偏心・ギャップ高さ・
+              DTIオフセットは3Dでは未対応です（0にしてください）。</p>
+          </fieldset>
+        </div>
 
-        <fieldset>
-          <legend>CSV一括計算</legend>
-          <p class="field-note">CSVの1行を1条件として、まとめて計算します。
-            CSVに書いた列だけが上書きされ、空欄・書いていない項目は画面の
-            入力値をそのまま使います。使える列名は
-            <a href="/static/help.html#batch-csv" target="_blank"
-               rel="noopener">ヘルプ</a>を参照してください。</p>
-          <p class="field-note">
-            <a href="/api/batch-template" download>テンプレートCSVを
-            ダウンロード</a>（Excelで編集できます）</p>
-          <label>条件CSVファイル
-            <input type="file" id="batch-file" accept=".csv,text/csv">
-          </label>
-          <div class="button-row">
-            <button type="button" id="batch-run-button">CSV一括計算を実行</button>
-          </div>
-        </fieldset>
+        <div class="settings-panel" id="panel-sweep-csv" hidden>
+          <fieldset>
+            <legend>パラメータスイープ</legend>
+            <label class="checkbox-label">
+              <input type="checkbox" id="sweep-enabled"> スイープ実行
+            </label>
+            <label>対象パラメータ
+              <select id="sweep-parameter">
+                <option value="source.incident_angle_deg" selected>入射角 CRA [°]</option>
+                <option value="source.wavelength_nm">波長 [nm]</option>
+                <option value="pixel_pitch_um">画素サイズ [µm]</option>
+                <option value="ocl.height_um">OCL高さ [µm]</option>
+                <option value="ocl.superellipse_exponent">スーパー楕円指数</option>
+                <option value="ocl.base_um">OCLベース層厚 [µm]</option>
+                <option value="ocl.offset_um">OCL偏心 [µm]</option>
+                <option value="ocl.gap_height_left_um">OCL左ギャップ高さ [µm]</option>
+                <option value="ocl.gap_height_right_um">OCL右ギャップ高さ [µm]</option>
+                <option value="materials.ocl_n">OCL屈折率</option>
+                <option value="dti.offset_um">DTIオフセット [µm]</option>
+                <option value="layers.color_filter_um">カラーフィルタ膜厚 [µm]</option>
+              </select>
+            </label>
+            <label>値リスト（カンマ区切り）
+              <input type="text" id="sweep-values" value="0, 10, 20, 30">
+            </label>
+          </fieldset>
 
-        <fieldset>
-          <legend>光・計算条件</legend>
-          <label>波長 [nm]
-            <input type="number" id="wavelength" value="550"
-                   min="400" max="700" step="any" required>
-          </label>
-          <label>入射角 CRA [°]
-            <input type="number" id="incident-angle" value="0"
-                   min="0" max="35" step="any" required>
-          </label>
-          <label>PD面の深さ（Si上面から）[µm]
-            <input type="number" id="pd-depth" value="0.5"
-                   min="0.1" max="5" step="any">
-          </label>
-          <label>メッシュ解像度 [セル/µm]
-            <input type="number" id="resolution" value="100"
-                   min="20" max="400" step="any">
-          </label>
-          <p class="field-note">3D計算（真上ビュー）を試すときは、まず
-            40〜50に下げると数分で傾向を確認できます（精度が足りない
-            場合は実行時に注意が表示されます）。</p>
-        </fieldset>
+          <fieldset>
+            <legend>CSV一括計算</legend>
+            <p class="field-note">CSVの1行を1条件として、まとめて計算します。
+              CSVに書いた列だけが上書きされ、空欄・書いていない項目は画面の
+              入力値をそのまま使います。使える列名は
+              <a href="/static/help.html#batch-csv" target="_blank"
+                 rel="noopener">ヘルプ</a>を参照してください。</p>
+            <p class="field-note">
+              <a href="/api/batch-template" download>テンプレートCSVを
+              ダウンロード</a>（Excelで編集できます）</p>
+            <label>条件CSVファイル
+              <input type="file" id="batch-file" accept=".csv,text/csv">
+            </label>
+            <div class="button-row">
+              <button type="button" id="batch-run-button">CSV一括計算を実行</button>
+            </div>
+          </fieldset>
+        </div>
 
         <div class="button-row">
           <button type="button" id="preview-button">構造プレビュー</button>
