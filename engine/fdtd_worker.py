@@ -315,10 +315,11 @@ def validate_params(params):
                 f"（最大 {structure_builder.MAX_PATTERN_UNITS} 枚）")
         if params["mode"] == "3d":
             errors.append("OCL混在パターンは現在2Dモードのみ対応しています")
-        if params["crosstalk"]:
+        if params["crosstalk"] and len(pattern) < 2:
             errors.append(
-                "受光内訳の評価とOCL混在パターンは同時に使えません"
-                "（混在時は通常計算で画素ごとの内訳を確認してください）")
+                "受光内訳の評価で混在パターンを使う場合は、照射する中央の"
+                "レンズの隣も含めて2枚以上並べてください（例: 1,2,1）。"
+                "レンズ1種類だけの受光内訳は共有方式欄で評価できます")
         if not params["ocl"]["enabled"]:
             errors.append("OCL混在パターンは「OCLあり」のときに指定してください")
     if (params["crosstalk"] and params["mode"] == "3d"
@@ -535,11 +536,13 @@ def run_case_2d(params, case_dir, progress_path, phase_prefix, start_time):
     def plane_wave_amplitude(position):
         return cmath.exp(2j * math.pi * kx * position.x)
 
+    # 受光内訳評価では照射するレンズの真上に光源を置く
+    # （混在パターンでは中央のレンズがセル中心からずれることがある）
     sources = [mp.Source(
         mp.GaussianSource(frequency,
                           fwidth=SOURCE_FRACTIONAL_BANDWIDTH * frequency),
         component=mp.Ez,  # 2DはEz偏光（s偏光）で評価する
-        center=mp.Vector3(0, coords["source_y"]),
+        center=mp.Vector3(coords["source_center_x_um"], coords["source_y"]),
         size=mp.Vector3(coords["source_width_um"], 0),
         amp_func=plane_wave_amplitude,
     )]
@@ -566,7 +569,8 @@ def run_case_2d(params, case_dir, progress_path, phase_prefix, start_time):
             monitors.append(sim.add_flux(frequency, 0, 1, region))
         return monitors
 
-    decay_point = mp.Vector3(0, coords["pd_monitor_y"])
+    decay_point = mp.Vector3(coords["source_center_x_um"],
+                             coords["pd_monitor_y"])
 
     # 1回目: 参照計算（構造なし・空気のみ）で入射パワーを測る
     reference_sim = make_simulation([])
@@ -613,13 +617,12 @@ def run_case_2d(params, case_dir, progress_path, phase_prefix, start_time):
         "polarization": "Ez（2D・s偏光）",
     }
     if params["crosstalk"]:
-        # 中央の共有レンズ単位に属する画素（例: 6画素なら中央の2画素）
-        unit_pixels = coords["unit_pixels"]
-        center_indices = list(range(unit_pixels, 2 * unit_pixels))
+        # 照射したレンズに属する画素（混在パターンでは中央のレンズの画素）
+        center_indices = coords["center_pixel_indices"]
         center, neighbors_total = crosstalk_summary(efficiency_per_pixel,
                                                     center_indices)
         result.update({
-            "unit_pixels": unit_pixels,
+            "unit_pixels": coords["unit_pixels"],
             "center_pixel_indices": center_indices,
             "collection_efficiency_center": center,
             "crosstalk_total": neighbors_total,
