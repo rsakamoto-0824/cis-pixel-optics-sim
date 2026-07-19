@@ -371,6 +371,14 @@ def validate_params(params):
             errors.append(f"未知のDTI配置です: {params['dti']['placement']}")
     if params["pd"]["top_depth_um"] >= params["layers"]["si_um"]:
         errors.append("PD面の深さはSi厚より浅くしてください")
+    # 観察深さがSi厚を超えると観察面がSi外（吸収境界の中）になり、
+    # 物理的に意味のない分布が表示されてしまうため事前に弾く
+    view_depth = params["view"]["depth_um"]
+    if view_depth is not None and not (
+            0.0 <= view_depth <= params["layers"]["si_um"]):
+        errors.append(
+            f"真上ビューの観察深さ {view_depth} µm は 0 以上、Si厚 "
+            f"{params['layers']['si_um']} µm 以下にしてください")
 
     batch = params.get("batch")
     if batch:
@@ -452,12 +460,17 @@ def collect_warnings(params):
 def estimate_3d_voxel_count(params):
     pitch = params["pixel_pitch_um"]
     nx, ny = structure_builder.UNIT_PIXELS_3D[params["ocl"]["sharing"]]
+    lateral_extra = 0.0
     if params["crosstalk"]:
         nx = ny = structure_builder.CROSSTALK_GRID_PIXELS
+        # クロストーク評価のセルには横方向の余白とPMLが両側に付く
+        lateral_extra = 2.0 * (structure_builder.CROSSTALK_LATERAL_MARGIN_UM
+                               + structure_builder.PML_THICKNESS_UM)
     heights = structure_builder.compute_stack_heights(params)
     cell_height = heights["top"] - heights["bottom"]
     resolution = params["resolution_pixels_per_um"]
-    return (pitch * nx * resolution) * (pitch * ny * resolution) \
+    return ((pitch * nx + lateral_extra) * resolution) \
+        * ((pitch * ny + lateral_extra) * resolution) \
         * (cell_height * resolution)
 
 

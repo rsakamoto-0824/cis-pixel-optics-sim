@@ -1,6 +1,7 @@
 """計算結果・構造プレビューの画像生成（matplotlib）。"""
 
 import io
+import threading
 from pathlib import Path
 
 import matplotlib
@@ -13,6 +14,10 @@ plt.rcParams["font.family"] = ["Hiragino Sans", "Yu Gothic", "Meiryo",
                                "sans-serif"]
 
 CROSS_SECTION_DPI = 150
+
+# matplotlib（pyplot）は同時アクセスに対応していないため、
+# 複数の画像リクエストが重なったときは1枚ずつ順番に描画する
+PLOT_LOCK = threading.Lock()
 
 # カラーフィルタ層の強調表示（構造図で位置が分かるようにする）
 COLOR_FILTER_BAND_COLOR = "#ff8c00"
@@ -48,7 +53,7 @@ def draw_color_filter_band(ax, cf_bottom_y, cf_top_y, si_top_y):
                alpha=COLOR_FILTER_BAND_ALPHA, label="カラーフィルタ")
 
 
-def plot_cross_section(job_dir):
+def _plot_cross_section_unlocked(job_dir):
     """fields.npz から構造と|E|^2の断面図PNGを作り、そのパスを返す。"""
     job_dir = Path(job_dir)
     output_path = job_dir / "cross_section.png"
@@ -108,7 +113,7 @@ def plot_cross_section(job_dir):
     return output_path
 
 
-def plot_top_view(job_dir):
+def _plot_top_view_unlocked(job_dir):
     """fields.npz の真上ビュー（XY平面 |E|^2）PNGを作り、パスを返す。
 
     真上ビューのデータは3Dモードのみ保存される。無い場合は None を返す。
@@ -139,7 +144,7 @@ def plot_top_view(job_dir):
     return output_path
 
 
-def plot_sweep(job_dir, sweep):
+def _plot_sweep_unlocked(job_dir, sweep):
     """スイープ結果の折れ線グラフPNGを作り、パスを返す。
 
     sweep は result.json 内の sweep ブロック（label / results を含む辞書）。
@@ -171,7 +176,7 @@ def plot_sweep(job_dir, sweep):
     return output_path
 
 
-def plot_structure_preview(epsilon, x_um, y_um, layer_info):
+def _plot_structure_preview_unlocked(epsilon, x_um, y_um, layer_info):
     """構造プレビュー（誘電率分布）のPNGバイト列を返す。
 
     layer_info はセル座標の {"si_top", "ar_top", "cf_top"} を持つ辞書。
@@ -197,3 +202,24 @@ def plot_structure_preview(epsilon, x_um, y_um, layer_info):
                    bbox_inches="tight")
     plt.close(figure)
     return buffer.getvalue()
+
+
+def plot_cross_section(job_dir):
+    with PLOT_LOCK:
+        return _plot_cross_section_unlocked(job_dir)
+
+
+def plot_top_view(job_dir):
+    with PLOT_LOCK:
+        return _plot_top_view_unlocked(job_dir)
+
+
+def plot_sweep(job_dir, sweep):
+    with PLOT_LOCK:
+        return _plot_sweep_unlocked(job_dir, sweep)
+
+
+def plot_structure_preview(epsilon, x_um, y_um, layer_info):
+    with PLOT_LOCK:
+        return _plot_structure_preview_unlocked(epsilon, x_um, y_um,
+                                                layer_info)

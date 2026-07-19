@@ -150,6 +150,9 @@ previewButton.addEventListener("click", async () => {
     const blob = await response.blob();
     const image = document.createElement("img");
     image.src = URL.createObjectURL(blob);
+    // 表示し終えた画像データを解放する（繰り返しプレビューでのメモリ増加防止）
+    image.addEventListener("load", () => URL.revokeObjectURL(image.src),
+                           { once: true });
     image.alt = "構造プレビュー（誘電率分布の断面図）";
     previewArea.innerHTML = "";
     previewArea.appendChild(image);
@@ -244,6 +247,9 @@ function watchJob(jobId) {
 
       if (job.status === "finished" && job.result) {
         renderResult(jobId, job.result, resultArea);
+      } else if (job.status === "cancelled") {
+        resultArea.innerHTML = '<p class="placeholder">計算を中断しました</p>';
+        showMessage("計算を中断しました", "warning");
       } else {
         resultArea.innerHTML = "";
         showMessage(`計算が失敗しました: ${job.error || "原因不明"}`, "error");

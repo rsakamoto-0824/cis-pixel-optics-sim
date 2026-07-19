@@ -17,8 +17,16 @@ from app.constants import (JOB_ID_TIMESTAMP_FORMAT, JOB_LIST_MAX_COUNT,
                            JOBS_DIR, REPO_ROOT)
 
 
+def reap_finished_workers():
+    """終了したワーカーを回収し、ハンドル一覧から取り除く（ゾンビ解消）。"""
+    for pid, process in list(WORKER_PROCESSES.items()):
+        if process.poll() is not None:
+            del WORKER_PROCESSES[pid]
+
+
 def create_job(params, job_name):
     """input.jsonを書き出してワーカーを起動し、ジョブIDを返す。"""
+    reap_finished_workers()
     timestamp = datetime.datetime.now().strftime(JOB_ID_TIMESTAMP_FORMAT)
     job_id = f"{timestamp}-{secrets.token_hex(3)}"
     job_dir = JOBS_DIR / job_id
@@ -30,10 +38,13 @@ def create_job(params, job_name):
         json.dumps({"status": "running", "phase": "starting"},
                    ensure_ascii=False))
 
-    log_file = open(job_dir / "worker.log", "w")
-    process = subprocess.Popen(
-        [sys.executable, "-m", "engine.fdtd_worker", str(job_dir)],
-        cwd=REPO_ROOT, stdout=log_file, stderr=subprocess.STDOUT)
+    # ログファイルはワーカー側が引き継ぐため、サーバー側はすぐ閉じる
+    # （開いたままにするとジョブごとにファイルハンドルが漏れる）
+    with open(job_dir / "worker.log", "w") as log_file:
+        process = subprocess.Popen(
+            [sys.executable, "-m", "engine.fdtd_worker", str(job_dir)],
+            cwd=REPO_ROOT, stdout=log_file, stderr=subprocess.STDOUT)
+    WORKER_PROCESSES[process.pid] = process
     (job_dir / "meta.json").write_text(json.dumps({
         "pid": process.pid,
         "name": job_name,
@@ -52,7 +63,17 @@ def read_json_if_exists(path):
         return None
 
 
+# このサーバーが起動したワーカーのプロセスハンドル（生存判定に使う）。
+# ハンドルを残しておかないと、終了したワーカーがゾンビとして残り、
+# os.killによる判定では「生きている」と誤判定されることがある
+WORKER_PROCESSES = {}
+
+
 def is_process_alive(pid):
+    process = WORKER_PROCESSES.get(pid)
+    if process is not None:
+        # poll() は終了済みプロセスを回収（ゾンビ解消）して終了を検出する
+        return process.poll() is None
     try:
         os.kill(pid, 0)
         return True
@@ -72,9 +93,14 @@ def get_job_status(job_id):
     status = progress.get("status", "unknown")
 
     if status == "running" and not is_process_alive(meta.get("pid")):
-        status = "failed"
-        progress["error"] = progress.get(
-            "error", "計算プロセスが異常終了しました（worker.logを確認）")
+        # 完了直後はprogress.jsonの読み込みとプロセス終了が入れ違うことが
+        # あるため、読み直してから失敗と判定する（誤「失敗」表示の防止）
+        progress = read_json_if_exists(job_dir / "progress.json") or progress
+        status = progress.get("status", "unknown")
+        if status == "running":
+            status = "failed"
+            progress["error"] = progress.get(
+                "error", "計算プロセスが異常終了しました（worker.logを確認）")
 
     return {
         "job_id": job_id,
@@ -95,6 +121,7 @@ def get_job_result(job_id):
 
 def list_jobs():
     """新しい順のジョブ一覧を返す。"""
+    reap_finished_workers()
     if not JOBS_DIR.is_dir():
         return []
     job_ids = sorted((p.name for p in JOBS_DIR.iterdir() if p.is_dir()),
