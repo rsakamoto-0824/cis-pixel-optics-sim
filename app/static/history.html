@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ジョブ履歴 — CIS画素光学シミュレーター</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <div>
+      <h1>ジョブ履歴</h1>
+      <p class="subtitle">過去の計算の一覧・名前変更・削除・結果の再表示</p>
+    </div>
+    <a href="/" class="help-link">メイン画面へ戻る</a>
+  </header>
+
+  <main class="history-page">
+    <section class="panel" id="history-panel">
+      <h2>ジョブ一覧</h2>
+      <div class="job-history-controls">
+        <button type="button" id="delete-selected-button"
+                class="link-button">選択したジョブを削除</button>
+        <button type="button" id="delete-all-button"
+                class="link-button danger">すべてのジョブを削除</button>
+      </div>
+      <table id="job-table">
+        <thead>
+          <tr>
+            <th class="select-column">
+              <input type="checkbox" id="select-all-jobs"
+                     title="すべて選択／解除">
+            </th>
+            <th>ジョブ名</th><th>状態</th><th>経過 [秒]</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="job-table-body"></tbody>
+      </table>
+      <div id="history-message" class="message" hidden></div>
+    </section>
+
+    <section class="panel" id="history-result-panel">
+      <h2>過去の結果</h2>
+      <div id="history-result-area">
+        <p class="placeholder">ジョブ一覧の「結果を表示」を押すと、ここに表示されます</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/result_view.js"></script>
+  <script src="/static/history.js"></script>
+</body>
+</html>
