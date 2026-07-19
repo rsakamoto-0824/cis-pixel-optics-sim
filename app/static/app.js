@@ -1,9 +1,7 @@
-// CIS画素光学シミュレーター 画面ロジック
+// CIS画素光学シミュレーター メイン画面ロジック
+// （ジョブ履歴は別ページ history.html / history.js に分離。2026-07-19）
 
 const JOB_POLL_INTERVAL_MS = 2000;
-
-// ジョブ履歴の折りたたみ状態を保存するlocalStorageキー
-const JOB_HISTORY_COLLAPSED_KEY = "jobHistoryCollapsed";
 
 // 設定タブの選択状態を保存するlocalStorageキー
 const SETTINGS_ACTIVE_TAB_KEY = "settingsActiveTab";
@@ -16,13 +14,6 @@ const batchFileInput = document.getElementById("batch-file");
 const formMessage = document.getElementById("form-message");
 const previewArea = document.getElementById("preview-area");
 const resultArea = document.getElementById("result-area");
-const historyResultArea = document.getElementById("history-result-area");
-const jobTableBody = document.getElementById("job-table-body");
-const selectAllCheckbox = document.getElementById("select-all-jobs");
-const deleteSelectedButton = document.getElementById("delete-selected-button");
-const deleteAllButton = document.getElementById("delete-all-button");
-const jobHistoryBody = document.getElementById("job-history-body");
-const jobHistoryToggle = document.getElementById("job-history-toggle");
 
 let pollTimerId = null;
 
@@ -124,13 +115,6 @@ function collectParams() {
   };
 }
 
-function escapeHtml(text) {
-  return String(text).replace(/[&<>"']/g, (ch) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;",
-    '"': "&quot;", "'": "&#39;",
-  }[ch]));
-}
-
 function showMessage(text, kind) {
   formMessage.textContent = text;
   formMessage.className = `message ${kind}`;
@@ -198,7 +182,6 @@ form.addEventListener("submit", async (event) => {
       showMessage(`注意:\n${data.warnings.join("\n")}`, "warning");
     }
     watchJob(data.job_id);
-    refreshJobList();
   } catch (error) {
     showMessage(error.message, "error");
     runButton.disabled = false;
@@ -235,7 +218,6 @@ batchRunButton.addEventListener("click", async () => {
       showMessage(`注意:\n${data.warnings.join("\n")}`, "warning");
     }
     watchJob(data.job_id);
-    refreshJobList();
   } catch (error) {
     showMessage(error.message, "error");
     runButton.disabled = false;
@@ -259,10 +241,9 @@ function watchJob(jobId) {
       pollTimerId = null;
       runButton.disabled = false;
       batchRunButton.disabled = false;
-      refreshJobList();
 
       if (job.status === "finished" && job.result) {
-        renderResult(jobId, job.result);
+        renderResult(jobId, job.result, resultArea);
       } else {
         resultArea.innerHTML = "";
         showMessage(`計算が失敗しました: ${job.error || "原因不明"}`, "error");
@@ -272,332 +253,3 @@ function watchJob(jobId) {
     }
   }, JOB_POLL_INTERVAL_MS);
 }
-
-// targetArea: 計算直後は「計算結果」、ジョブ履歴からは「過去の結果」に表示する
-function renderResult(jobId, result, targetArea = resultArea) {
-  if (result.type === "sweep") {
-    renderSweepResult(jobId, result, targetArea);
-    return;
-  }
-  if (result.type === "batch") {
-    renderBatchResult(jobId, result, targetArea);
-    return;
-  }
-
-  const efficiencyPercent =
-    (result.collection_efficiency_total * 100).toFixed(1);
-  // 受光内訳（中央照射）のときは位置が分かる名前で表示する。
-  // 共有レンズでは単位内の画素番号を付ける（例: 中央-1, 中央-2）
-  const perPixelValues = result.collection_efficiency_per_pixel;
-  const unitPixels = result.unit_pixels || 1;
-  const isBreakdown = (result.crosstalk_total !== undefined
-                       && perPixelValues.length === 3 * unitPixels);
-  const pixelName = (index) => {
-    if (!isBreakdown) return `画素${index + 1}`;
-    const unitLabel = ["左隣", "中央", "右隣"][Math.floor(index / unitPixels)];
-    if (unitPixels === 1) return unitLabel;
-    return `${unitLabel}-${(index % unitPixels) + 1}`;
-  };
-  const perPixel = perPixelValues
-    .map((value, index) =>
-      `${pixelName(index)}: ${(value * 100).toFixed(1)}%`)
-    .join(" / ");
-
-  let metrics = `
-    <div class="metric">
-      <div class="metric-label">集光効率（合計）</div>
-      <div class="metric-value">${efficiencyPercent}%</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">画素ごとの内訳</div>
-      <div class="metric-value" style="font-size:0.95rem">${perPixel}</div>
-    </div>
-  `;
-  if (result.crosstalk_total !== undefined) {
-    const centerPercent =
-      (result.collection_efficiency_center * 100).toFixed(1);
-    const crosstalkPercent = (result.crosstalk_total * 100).toFixed(2);
-    metrics += `
-      <div class="metric">
-        <div class="metric-label">集光効率（中央画素）</div>
-        <div class="metric-value">${centerPercent}%</div>
-      </div>
-      <div class="metric">
-        <div class="metric-label">クロストーク（漏れ合計）</div>
-        <div class="metric-value">${crosstalkPercent}%</div>
-      </div>
-    `;
-  }
-  metrics += `
-    <div class="metric">
-      <div class="metric-label">計算時間</div>
-      <div class="metric-value">${result.elapsed_seconds}秒</div>
-    </div>
-  `;
-
-  let images =
-    `<img src="/api/jobs/${jobId}/image" alt="断面の構造と電場強度分布">`;
-  if (result.input && result.input.mode === "3d") {
-    images += `
-      <img src="/api/jobs/${jobId}/topview" alt="真上ビューの電場強度分布">`;
-  }
-
-  targetArea.innerHTML =
-    `<div class="result-numbers">${metrics}</div>${images}`;
-}
-
-function renderSweepResult(jobId, result, targetArea = resultArea) {
-  const rows = result.sweep.results.map((entry) => {
-    const crosstalkCell = entry.crosstalk_total !== undefined
-      ? `<td>${(entry.crosstalk_total * 100).toFixed(2)}%</td>` : "";
-    return `<tr><td>${entry.value}</td>` +
-      `<td>${(entry.collection_efficiency_total * 100).toFixed(1)}%</td>` +
-      crosstalkCell + `</tr>`;
-  }).join("");
-  const crosstalkHeader = result.sweep.results[0].crosstalk_total !== undefined
-    ? "<th>クロストーク</th>" : "";
-
-  targetArea.innerHTML = `
-    <div class="result-numbers">
-      <div class="metric">
-        <div class="metric-label">スイープ対象</div>
-        <div class="metric-value" style="font-size:0.95rem">
-          ${result.sweep.label}（${result.sweep.values.length}条件）</div>
-      </div>
-      <div class="metric">
-        <div class="metric-label">計算時間</div>
-        <div class="metric-value">${result.elapsed_seconds}秒</div>
-      </div>
-    </div>
-    <p><a href="/api/jobs/${jobId}/csv" download>CSVをダウンロード</a></p>
-    <img src="/api/jobs/${jobId}/sweep-plot" alt="スイープ結果のグラフ">
-    <table>
-      <thead><tr><th>${result.sweep.label}</th><th>集光効率</th>
-        ${crosstalkHeader}</tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-  `;
-}
-
-function renderBatchResult(jobId, result, targetArea = resultArea) {
-  const columns = result.batch.columns;
-  const entries = result.batch.results;
-  const hasCrosstalk =
-    entries.some((entry) => entry.crosstalk_total !== undefined);
-
-  const headerCells = ["条件名"].concat(columns)
-    .map((name) => `<th>${escapeHtml(name)}</th>`).join("")
-    + "<th>集光効率</th>"
-    + (hasCrosstalk ? "<th>クロストーク</th>" : "");
-
-  const rows = entries.map((entry) => {
-    // 空欄（上書きなし）の列は「—」で表示する（画面の入力値で計算）
-    const parameterCells = columns.map((name) => {
-      const value = entry.overrides[name];
-      return `<td>${value === undefined ? "—" : escapeHtml(value)}</td>`;
-    }).join("");
-    const crosstalkCell = !hasCrosstalk ? ""
-      : entry.crosstalk_total === undefined ? "<td>—</td>"
-      : `<td>${(entry.crosstalk_total * 100).toFixed(2)}%</td>`;
-    return `<tr><td>${escapeHtml(entry.label)}</td>${parameterCells}` +
-      `<td>${(entry.collection_efficiency_total * 100).toFixed(1)}%</td>` +
-      crosstalkCell + `</tr>`;
-  }).join("");
-
-  targetArea.innerHTML = `
-    <div class="result-numbers">
-      <div class="metric">
-        <div class="metric-label">CSV一括計算</div>
-        <div class="metric-value">${entries.length}条件</div>
-      </div>
-      <div class="metric">
-        <div class="metric-label">計算時間</div>
-        <div class="metric-value">${result.elapsed_seconds}秒</div>
-      </div>
-    </div>
-    <p><a href="/api/jobs/${jobId}/csv" download>結果CSVをダウンロード</a></p>
-    <table>
-      <thead><tr>${headerCells}</tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-  `;
-}
-
-// ---- ジョブ履歴 ----
-
-function addActionButton(cell, labelText, onClick) {
-  const button = document.createElement("button");
-  button.className = "link-button";
-  button.textContent = labelText;
-  button.addEventListener("click", onClick);
-  cell.appendChild(button);
-}
-
-// ジョブ名のセルを入力欄に切り替え、Enterまたは欄外クリックで保存する
-function startRenameJob(nameCell, job) {
-  const input = document.createElement("input");
-  input.type = "text";
-  input.value = job.name;
-  input.maxLength = 60;
-  input.style.width = "95%";
-  nameCell.innerHTML = "";
-  nameCell.appendChild(input);
-  input.focus();
-  input.select();
-
-  const save = async () => {
-    const newName = input.value.trim();
-    if (newName && newName !== job.name) {
-      try {
-        await postJson(`/api/jobs/${job.job_id}/name`, { name: newName });
-      } catch (error) {
-        showMessage(error.message, "error");
-      }
-    }
-    refreshJobList();
-  };
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") input.blur();
-    if (event.key === "Escape") {
-      input.value = job.name; // 元の名前に戻してから保存（変更なし扱い）
-      input.blur();
-    }
-  });
-  input.addEventListener("blur", save);
-}
-
-async function deleteJob(job) {
-  const confirmed = window.confirm(
-    `ジョブ「${job.name}」を削除します。計算結果も消えます。よろしいですか？`);
-  if (!confirmed) return;
-  try {
-    const response = await fetch(`/api/jobs/${job.job_id}`,
-                                 { method: "DELETE" });
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      showMessage(data.detail || "削除できませんでした", "error");
-    }
-  } catch (error) {
-    showMessage("削除できませんでした", "error");
-  }
-  refreshJobList();
-}
-
-// ---- ジョブ履歴の折りたたみ・一括削除 ----
-
-function applyJobHistoryCollapsed(collapsed) {
-  jobHistoryBody.hidden = collapsed;
-  jobHistoryToggle.textContent = collapsed ? "表示" : "隠す";
-}
-
-jobHistoryToggle.addEventListener("click", () => {
-  const collapsed = !jobHistoryBody.hidden;
-  localStorage.setItem(JOB_HISTORY_COLLAPSED_KEY, collapsed ? "1" : "0");
-  applyJobHistoryCollapsed(collapsed);
-});
-
-selectAllCheckbox.addEventListener("change", () => {
-  // 実行中のジョブは削除できないため選択対象から外れている（disabled）
-  for (const checkbox of jobTableBody.querySelectorAll(
-      ".job-select:not(:disabled)")) {
-    checkbox.checked = selectAllCheckbox.checked;
-  }
-});
-
-async function bulkDeleteJobs(requestBody, confirmText) {
-  if (!window.confirm(confirmText)) return;
-  try {
-    const response = await postJson("/api/jobs/bulk-delete", requestBody);
-    const data = await response.json();
-    let message = `${data.deleted}件のジョブを削除しました`;
-    if (data.skipped > 0) {
-      message += `（実行中などの${data.skipped}件はスキップ）`;
-    }
-    showMessage(message, "warning");
-  } catch (error) {
-    showMessage(error.message, "error");
-  }
-  selectAllCheckbox.checked = false;
-  refreshJobList();
-}
-
-deleteSelectedButton.addEventListener("click", () => {
-  const selectedIds = [...jobTableBody.querySelectorAll(".job-select:checked")]
-    .map((checkbox) => checkbox.dataset.jobId);
-  if (selectedIds.length === 0) {
-    showMessage("削除するジョブにチェックを入れてください", "error");
-    return;
-  }
-  bulkDeleteJobs(
-    { job_ids: selectedIds },
-    `選択した${selectedIds.length}件のジョブを削除します。` +
-      "計算結果も消えます。よろしいですか？");
-});
-
-deleteAllButton.addEventListener("click", () => {
-  bulkDeleteJobs(
-    { all: true },
-    "すべてのジョブを削除します（実行中のジョブを除く）。" +
-      "計算結果も消えます。よろしいですか？");
-});
-
-async function refreshJobList() {
-  try {
-    const response = await fetch("/api/jobs");
-    const data = await response.json();
-    jobTableBody.innerHTML = "";
-    for (const job of data.jobs) {
-      const row = document.createElement("tr");
-      const statusLabel = {
-        finished: "完了", running: "実行中",
-        failed: "失敗", cancelled: "中断",
-      }[job.status] || job.status;
-
-      // ジョブ名の下にIDを小さく表示する（結果フォルダを探すときの手がかり）。
-      // 名前が未設定でIDと同じときは二重表示になるため省く
-      const idSub = job.name === job.job_id ? ""
-        : `<div class="job-id-sub">${escapeHtml(job.job_id)}</div>`;
-      const selectDisabled = job.status === "running" ? "disabled" : "";
-      row.innerHTML = `
-        <td class="select-column">
-          <input type="checkbox" class="job-select" ${selectDisabled}
-                 data-job-id="${escapeHtml(job.job_id)}">
-        </td>
-        <td class="job-name" title="${escapeHtml(job.job_id)}">
-          ${escapeHtml(job.name)}${idSub}
-        </td>
-        <td class="status-${job.status}">${statusLabel}</td>
-        <td>${job.elapsed_seconds ?? "—"}</td>
-        <td></td>
-      `;
-      const nameCell = row.querySelector(".job-name");
-      const actionCell = row.querySelector("td:last-child");
-      if (job.status === "finished") {
-        addActionButton(actionCell, "結果を表示", async () => {
-          const jobResponse = await fetch(`/api/jobs/${job.job_id}`);
-          const detail = await jobResponse.json();
-          if (detail.result) {
-            renderResult(job.job_id, detail.result, historyResultArea);
-          }
-        });
-      } else if (job.status === "running") {
-        addActionButton(actionCell, "中断", async () => {
-          await fetch(`/api/jobs/${job.job_id}/cancel`, { method: "POST" });
-          refreshJobList();
-        });
-      }
-      addActionButton(actionCell, "名前変更",
-                      () => startRenameJob(nameCell, job));
-      if (job.status !== "running") {
-        addActionButton(actionCell, "削除", () => deleteJob(job));
-      }
-      jobTableBody.appendChild(row);
-    }
-  } catch (error) {
-    // 一覧取得の失敗は画面を壊さない（次回の更新で回復する）
-  }
-}
-
-applyJobHistoryCollapsed(
-  localStorage.getItem(JOB_HISTORY_COLLAPSED_KEY) === "1");
-refreshJobList();

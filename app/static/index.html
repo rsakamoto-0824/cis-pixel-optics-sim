@@ -12,27 +12,31 @@
       <h1>CIS画素光学シミュレーター</h1>
       <p class="subtitle">FDTD法（Meep）による集光特性評価 — 2D断面モード</p>
     </div>
-    <a href="/static/help.html" target="_blank" rel="noopener"
-       class="help-link">ヘルプ（用語解説）</a>
+    <div class="header-links">
+      <a href="/static/history.html" target="_blank" rel="noopener"
+         class="help-link">ジョブ履歴</a>
+      <a href="/static/help.html" target="_blank" rel="noopener"
+         class="help-link">ヘルプ（用語解説）</a>
+    </div>
   </header>
 
   <main>
     <section class="panel" id="parameter-panel">
-      <h2>計算パラメータ</h2>
+      <h2>パラメータ設定</h2>
 
       <div class="settings-tabs" id="settings-tabs">
         <button type="button" class="settings-tab"
-                data-panel="panel-structure">画素・層構造</button>
+                data-panel="panel-structure">構造</button>
         <button type="button" class="settings-tab"
                 data-panel="panel-ocl">OCL</button>
         <button type="button" class="settings-tab"
                 data-panel="panel-dti">DTI</button>
         <button type="button" class="settings-tab"
-                data-panel="panel-light">光・計算</button>
+                data-panel="panel-light">光</button>
         <button type="button" class="settings-tab"
                 data-panel="panel-evaluation">評価</button>
         <button type="button" class="settings-tab"
-                data-panel="panel-sweep-csv">スイープ・CSV</button>
+                data-panel="panel-sweep-csv">スイープ</button>
       </div>
 
       <form id="parameter-form">
@@ -270,52 +274,22 @@
       </form>
     </section>
 
-    <section class="panel" id="output-panel">
+    <section class="panel" id="preview-panel">
       <h2>構造プレビュー</h2>
       <div id="preview-area" class="image-area">
         <p class="placeholder">「構造プレビュー」を押すと計算前に断面構造を確認できます</p>
       </div>
+    </section>
 
+    <section class="panel" id="result-panel">
       <h2>計算結果</h2>
       <div id="result-area">
         <p class="placeholder">「計算実行」を押すと結果がここに表示されます</p>
       </div>
     </section>
-
-    <section class="panel" id="history-panel">
-      <div class="section-header">
-        <h2>ジョブ履歴</h2>
-        <button type="button" id="job-history-toggle"
-                class="link-button">隠す</button>
-      </div>
-      <div id="job-history-body">
-        <div class="job-history-controls">
-          <button type="button" id="delete-selected-button"
-                  class="link-button">選択したジョブを削除</button>
-          <button type="button" id="delete-all-button"
-                  class="link-button danger">すべてのジョブを削除</button>
-        </div>
-        <table id="job-table">
-          <thead>
-            <tr>
-              <th class="select-column">
-                <input type="checkbox" id="select-all-jobs"
-                       title="すべて選択／解除">
-              </th>
-              <th>ジョブ名</th><th>状態</th><th>経過 [秒]</th><th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="job-table-body"></tbody>
-        </table>
-      </div>
-
-      <h2>過去の結果</h2>
-      <div id="history-result-area">
-        <p class="placeholder">ジョブ履歴の「結果を表示」を押すと、ここに表示されます</p>
-      </div>
-    </section>
   </main>
 
+  <script src="/static/result_view.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

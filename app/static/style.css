@@ -52,13 +52,18 @@ header {
 
 .help-link:hover { background: var(--color-background); }
 
+/* ヘッダー右側のボタン（ジョブ履歴・ヘルプ）を横に並べる */
+.header-links { display: flex; gap: 8px; flex-wrap: wrap; }
+
 header h1 { margin: 0; font-size: 1.3rem; }
 .subtitle { margin: 4px 0 0; color: var(--color-text-weak); font-size: 0.85rem; }
 
-/* 3ウィンドウ構成: 計算パラメータ／プレビュー・計算結果／履歴・過去の結果 */
+/* 3ウィンドウ構成: パラメータ設定／構造プレビュー／計算結果
+   （ジョブ履歴は別ページ history.html。2026-07-19） */
 main {
   display: grid;
-  grid-template-columns: 400px minmax(0, 1.1fr) minmax(0, 0.9fr);
+  /* 構造プレビューは3/4幅に縮め、その分を計算結果に回す（2026-07-19） */
+  grid-template-columns: 400px minmax(0, 0.75fr) minmax(0, 1.25fr);
   gap: var(--spacing);
   padding: var(--spacing);
   max-width: 1900px;
@@ -66,15 +71,24 @@ main {
   align-items: start;
 }
 
-/* 幅が足りないときは履歴ウィンドウを下段の全幅に回す */
+/* 幅が足りないときは計算結果ウィンドウを下段の全幅に回す */
 @media (max-width: 1400px) {
   main { grid-template-columns: 400px minmax(0, 1fr); }
-  #history-panel { grid-column: 1 / -1; }
+  #result-panel { grid-column: 1 / -1; }
 }
 
 @media (max-width: 900px) {
   main { grid-template-columns: 1fr; }
-  #history-panel { grid-column: auto; }
+  #result-panel { grid-column: auto; }
+}
+
+/* ジョブ履歴ページ: 左にジョブ一覧、右に過去の結果 */
+main.history-page {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+}
+
+@media (max-width: 1100px) {
+  main.history-page { grid-template-columns: 1fr; }
 }
 
 .panel {
@@ -85,8 +99,6 @@ main {
 }
 
 .panel h2 { font-size: 1.05rem; margin: 0 0 12px; }
-#output-panel h2 + h2, #output-panel div + h2, #output-panel table + h2,
-#history-panel div + h2, #history-panel table + h2 { margin-top: 24px; }
 
 fieldset {
   border: 1px solid var(--color-border);
@@ -152,7 +164,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .message.error { background: var(--color-error-bg); color: var(--color-error-text); }
 .message.warning { background: var(--color-warning-bg); color: var(--color-warning-text); }
 
-.image-area img, #result-area img {
+.image-area img, #result-area img, #history-result-area img {
   max-width: 100%;
   border: 1px solid var(--color-border);
   border-radius: 6px;
@@ -207,13 +219,6 @@ td .link-button + .link-button { margin-left: 10px; }
 .job-id-sub {
   color: var(--color-text-weak);
   font-size: 0.7rem;
-}
-
-/* ジョブ履歴の見出しと「隠す／表示」ボタンを横並びにする */
-.section-header {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
 }
 
 /* 一括削除ボタンの行 */
