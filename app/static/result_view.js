@@ -37,14 +37,12 @@ function renderResult(jobId, result, targetArea) {
       `${pixelName(index)}: ${(value * 100).toFixed(1)}%`)
     .join(" / ");
 
+  // 表示順: 集光効率（合計）→（中央画素）→クロストーク→計算時間→
+  // 画素ごとの内訳（2026-07-19 ユーザー指示）
   let metrics = `
     <div class="metric">
       <div class="metric-label">集光効率（合計）</div>
       <div class="metric-value">${efficiencyPercent}%</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">画素ごとの内訳</div>
-      <div class="metric-value" style="font-size:0.95rem">${perPixel}</div>
     </div>
   `;
   if (result.crosstalk_total !== undefined) {
@@ -66,6 +64,10 @@ function renderResult(jobId, result, targetArea) {
     <div class="metric">
       <div class="metric-label">計算時間</div>
       <div class="metric-value">${result.elapsed_seconds}秒</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">画素ごとの内訳</div>
+      <div class="metric-value" style="font-size:0.95rem">${perPixel}</div>
     </div>
   `;
 
