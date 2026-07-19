@@ -60,7 +60,7 @@
                      min="0" max="1" step="any">
             </label>
             <label>Si厚
-              <input type="number" id="layer-si" value="3.0"
+              <input type="number" id="layer-si" value="3.5"
                      min="1" max="10" step="any">
             </label>
           </fieldset>
@@ -97,6 +97,14 @@
                 <option value="shared4">4画素共有（2Dは近似）</option>
               </select>
             </label>
+            <label>混在パターン
+              <input type="text" id="ocl-pattern"
+                     placeholder="例: 1,2,1（空欄=共有方式を適用）">
+            </label>
+            <p class="field-note">1=共有なし、2=2画素共有、4=4画素共有の
+              レンズを左から順にカンマ区切りで並べます（最大8枚）。
+              入力すると共有方式より優先され、共有ありなしが混在する
+              条件を計算できます。</p>
             <label>中心オフセット（偏心）[µm]
               <input type="number" id="ocl-offset" value="0"
                      min="-1.25" max="1.25" step="any">

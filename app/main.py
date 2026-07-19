@@ -62,6 +62,8 @@ def build_default_job_name(params):
         parts.append("3D真上ビュー")
     if params["crosstalk"]:
         parts.append("受光内訳")
+    if params["ocl"].get("pattern"):
+        parts.append(f"混在OCL{len(params['ocl']['pattern'])}枚")
     parts.append(f"{params['pixel_pitch_um']:g}µm画素")
     parts.append(f"{params['source']['wavelength_nm']:g}nm")
     angle = params["source"]["incident_angle_deg"]
