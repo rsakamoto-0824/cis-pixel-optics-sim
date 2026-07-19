@@ -16,6 +16,7 @@ const batchFileInput = document.getElementById("batch-file");
 const formMessage = document.getElementById("form-message");
 const previewArea = document.getElementById("preview-area");
 const resultArea = document.getElementById("result-area");
+const historyResultArea = document.getElementById("history-result-area");
 const jobTableBody = document.getElementById("job-table-body");
 const selectAllCheckbox = document.getElementById("select-all-jobs");
 const deleteSelectedButton = document.getElementById("delete-selected-button");
@@ -272,13 +273,14 @@ function watchJob(jobId) {
   }, JOB_POLL_INTERVAL_MS);
 }
 
-function renderResult(jobId, result) {
+// targetArea: 計算直後は「計算結果」、ジョブ履歴からは「過去の結果」に表示する
+function renderResult(jobId, result, targetArea = resultArea) {
   if (result.type === "sweep") {
-    renderSweepResult(jobId, result);
+    renderSweepResult(jobId, result, targetArea);
     return;
   }
   if (result.type === "batch") {
-    renderBatchResult(jobId, result);
+    renderBatchResult(jobId, result, targetArea);
     return;
   }
 
@@ -340,11 +342,11 @@ function renderResult(jobId, result) {
       <img src="/api/jobs/${jobId}/topview" alt="真上ビューの電場強度分布">`;
   }
 
-  resultArea.innerHTML =
+  targetArea.innerHTML =
     `<div class="result-numbers">${metrics}</div>${images}`;
 }
 
-function renderSweepResult(jobId, result) {
+function renderSweepResult(jobId, result, targetArea = resultArea) {
   const rows = result.sweep.results.map((entry) => {
     const crosstalkCell = entry.crosstalk_total !== undefined
       ? `<td>${(entry.crosstalk_total * 100).toFixed(2)}%</td>` : "";
@@ -355,7 +357,7 @@ function renderSweepResult(jobId, result) {
   const crosstalkHeader = result.sweep.results[0].crosstalk_total !== undefined
     ? "<th>クロストーク</th>" : "";
 
-  resultArea.innerHTML = `
+  targetArea.innerHTML = `
     <div class="result-numbers">
       <div class="metric">
         <div class="metric-label">スイープ対象</div>
@@ -377,7 +379,7 @@ function renderSweepResult(jobId, result) {
   `;
 }
 
-function renderBatchResult(jobId, result) {
+function renderBatchResult(jobId, result, targetArea = resultArea) {
   const columns = result.batch.columns;
   const entries = result.batch.results;
   const hasCrosstalk =
@@ -402,7 +404,7 @@ function renderBatchResult(jobId, result) {
       crosstalkCell + `</tr>`;
   }).join("");
 
-  resultArea.innerHTML = `
+  targetArea.innerHTML = `
     <div class="result-numbers">
       <div class="metric">
         <div class="metric-label">CSV一括計算</div>
@@ -574,7 +576,9 @@ async function refreshJobList() {
         addActionButton(actionCell, "結果を表示", async () => {
           const jobResponse = await fetch(`/api/jobs/${job.job_id}`);
           const detail = await jobResponse.json();
-          if (detail.result) renderResult(job.job_id, detail.result);
+          if (detail.result) {
+            renderResult(job.job_id, detail.result, historyResultArea);
+          }
         });
       } else if (job.status === "running") {
         addActionButton(actionCell, "中断", async () => {

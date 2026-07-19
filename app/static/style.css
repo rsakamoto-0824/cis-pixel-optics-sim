@@ -55,17 +55,26 @@ header {
 header h1 { margin: 0; font-size: 1.3rem; }
 .subtitle { margin: 4px 0 0; color: var(--color-text-weak); font-size: 0.85rem; }
 
+/* 3ウィンドウ構成: 計算パラメータ／プレビュー・計算結果／履歴・過去の結果 */
 main {
   display: grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: 400px minmax(0, 1.1fr) minmax(0, 0.9fr);
   gap: var(--spacing);
   padding: var(--spacing);
-  max-width: 1400px;
+  max-width: 1900px;
   margin: 0 auto;
+  align-items: start;
+}
+
+/* 幅が足りないときは履歴ウィンドウを下段の全幅に回す */
+@media (max-width: 1400px) {
+  main { grid-template-columns: 400px minmax(0, 1fr); }
+  #history-panel { grid-column: 1 / -1; }
 }
 
 @media (max-width: 900px) {
   main { grid-template-columns: 1fr; }
+  #history-panel { grid-column: auto; }
 }
 
 .panel {
@@ -76,7 +85,8 @@ main {
 }
 
 .panel h2 { font-size: 1.05rem; margin: 0 0 12px; }
-#output-panel h2 + h2, #output-panel div + h2, #output-panel table + h2 { margin-top: 24px; }
+#output-panel h2 + h2, #output-panel div + h2, #output-panel table + h2,
+#history-panel div + h2, #history-panel table + h2 { margin-top: 24px; }
 
 fieldset {
   border: 1px solid var(--color-border);
