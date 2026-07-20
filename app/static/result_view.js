@@ -9,7 +9,8 @@ function escapeHtml(text) {
 
 // targetArea: 結果を描画する要素（メイン画面は計算結果、履歴ページは過去の結果）
 function renderResult(jobId, result, targetArea) {
-  if (result.type === "sweep") {
+  // RGB 3波長一括評価は波長スイープと同じ結果形式（色ラベル付きで表示）
+  if (result.type === "sweep" || result.type === "rgb") {
     renderSweepResult(jobId, result, targetArea);
     return;
   }
@@ -104,20 +105,26 @@ function renderResult(jobId, result, targetArea) {
 }
 
 function renderSweepResult(jobId, result, targetArea) {
-  const rows = result.sweep.results.map((entry) => {
+  const isRgb = result.type === "rgb";
+  const RGB_COLOR_NAMES = ["R", "G", "B"];
+  const rows = result.sweep.results.map((entry, index) => {
+    const colorCell = isRgb
+      ? `<td>${RGB_COLOR_NAMES[index] ?? ""}</td>` : "";
     const crosstalkCell = entry.crosstalk_total !== undefined
       ? `<td>${(entry.crosstalk_total * 100).toFixed(2)}%</td>` : "";
-    return `<tr><td>${entry.value}</td>` +
+    return `<tr>${colorCell}<td>${entry.value}</td>` +
       `<td>${(entry.collection_efficiency_total * 100).toFixed(1)}%</td>` +
       crosstalkCell + `</tr>`;
   }).join("");
+  const colorHeader = isRgb ? "<th>色</th>" : "";
   const crosstalkHeader = result.sweep.results[0].crosstalk_total !== undefined
     ? "<th>クロストーク</th>" : "";
+  const summaryLabel = isRgb ? "RGB 3波長評価" : "スイープ対象";
 
   targetArea.innerHTML = `
     <div class="result-numbers">
       <div class="metric">
-        <div class="metric-label">スイープ対象</div>
+        <div class="metric-label">${summaryLabel}</div>
         <div class="metric-value" style="font-size:0.95rem">
           ${result.sweep.label}（${result.sweep.values.length}条件）</div>
       </div>
@@ -129,7 +136,7 @@ function renderSweepResult(jobId, result, targetArea) {
     <p><a href="/api/jobs/${jobId}/csv" download>CSVをダウンロード</a></p>
     <img src="/api/jobs/${jobId}/sweep-plot" alt="スイープ結果のグラフ">
     <table>
-      <thead><tr><th>${result.sweep.label}</th><th>集光効率</th>
+      <thead><tr>${colorHeader}<th>${result.sweep.label}</th><th>集光効率</th>
         ${crosstalkHeader}</tr></thead>
       <tbody>${rows}</tbody>
     </table>

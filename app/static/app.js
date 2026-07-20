@@ -77,6 +77,12 @@ function collectParams() {
     view: { depth_um: Number.isNaN(topViewDepth) ? null : topViewDepth },
     crosstalk: document.getElementById("breakdown-enabled").checked,
     sweep: collectSweep(),
+    rgb: document.getElementById("rgb-enabled").checked,
+    rgb_wavelengths_nm: [
+      numberValue("rgb-wavelength-r"),
+      numberValue("rgb-wavelength-g"),
+      numberValue("rgb-wavelength-b"),
+    ],
     pixel_pitch_um: numberValue("pixel-pitch"),
     ocl: {
       enabled: document.getElementById("ocl-enabled").checked,
@@ -213,7 +219,8 @@ batchRunButton.addEventListener("click", async () => {
   runButton.disabled = true;
   try {
     const params = collectParams();
-    params.sweep = null; // 一括計算とスイープは同時に使わない
+    params.sweep = null; // 一括計算とスイープ・RGB評価は同時に使わない
+    params.rgb = false;
     params.batch_csv = await readCsvFileText(batchFileInput.files[0]);
     const response = await postJson("/api/jobs", params);
     const data = await response.json();
