@@ -67,6 +67,33 @@
                      min="1" max="10" step="any">
             </label>
           </fieldset>
+
+          <fieldset>
+            <legend>OCL表面の反射防止膜</legend>
+            <label>表面反射防止膜厚 [µm]
+              <input type="number" id="ocl-coat" value="0"
+                     min="0" max="0.3" step="any">
+            </label>
+            <label>反射防止膜屈折率
+              <input type="number" id="ocl-coat-n" value="1.26"
+                     min="1.0" max="2.5" step="any">
+            </label>
+            <p class="field-note">レンズ表面を覆う薄い反射防止膜です。
+              0で膜なし。厚さの目安は 波長 ÷（4 × 屈折率）
+              （550 nm・屈折率1.26では約0.11 µm）。</p>
+          </fieldset>
+
+          <fieldset>
+            <legend>OCL混在パターン</legend>
+            <label>混在パターン
+              <input type="text" id="ocl-pattern"
+                     placeholder="例: 1,2,1（空欄=共有方式を適用）">
+            </label>
+            <p class="field-note">1=共有なし、2=2画素共有、4=4画素共有の
+              レンズを左から順にカンマ区切りで並べます（最大8枚）。
+              入力するとOCLタブの共有方式より優先され、共有ありなしが
+              混在する条件を計算できます。</p>
+          </fieldset>
         </div>
 
         <div class="settings-panel" id="panel-ocl" hidden>
@@ -83,17 +110,6 @@
               <input type="number" id="ocl-n" value="1.58"
                      min="1.2" max="2.5" step="any">
             </label>
-            <label>表面反射防止膜厚 [µm]
-              <input type="number" id="ocl-coat" value="0"
-                     min="0" max="0.3" step="any">
-            </label>
-            <label>反射防止膜屈折率
-              <input type="number" id="ocl-coat-n" value="1.26"
-                     min="1.0" max="2.5" step="any">
-            </label>
-            <p class="field-note">レンズ表面を覆う薄い反射防止膜です。
-              0で膜なし。厚さの目安は 波長 ÷（4 × 屈折率）
-              （550 nm・屈折率1.26では約0.11 µm）。</p>
             <label>レンズ形状
               <select id="ocl-shape">
                 <option value="spherical_cap" selected>球面キャップ</option>
@@ -111,14 +127,6 @@
                 <option value="shared4">4画素共有（2Dは近似）</option>
               </select>
             </label>
-            <label>混在パターン
-              <input type="text" id="ocl-pattern"
-                     placeholder="例: 1,2,1（空欄=共有方式を適用）">
-            </label>
-            <p class="field-note">1=共有なし、2=2画素共有、4=4画素共有の
-              レンズを左から順にカンマ区切りで並べます（最大8枚）。
-              入力すると共有方式より優先され、共有ありなしが混在する
-              条件を計算できます。</p>
             <label>中心オフセット（偏心）[µm]
               <input type="number" id="ocl-offset" value="0"
                      min="-1.25" max="1.25" step="any">
