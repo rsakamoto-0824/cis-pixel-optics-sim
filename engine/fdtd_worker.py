@@ -336,9 +336,6 @@ def validate_params(params):
                 errors.append(
                     f"OCL{side}ギャップ高さ {gap} µm はレンズ高さ "
                     f"{params['ocl']['height_um']} µm 未満にしてください")
-            if gap != 0.0 and params["mode"] == "3d":
-                errors.append(
-                    f"OCL{side}ギャップ高さは現在2Dモードのみ対応しています")
 
     # OCL偏心はフットプリント固定で頂点だけをずらすため、レンズ半幅未満に限る
     # （混在パターンでは一番小さいレンズの半幅を基準にする）
@@ -364,10 +361,6 @@ def validate_params(params):
             f"DTIオフセット {dti_offset} µm は画素サイズの半分"
             f"（±{max_dti_offset} µm）以内にしてください")
 
-    for offset, label in ((ocl_offset, "OCL偏心"),
-                          (dti_offset, "DTIオフセット")):
-        if offset != 0.0 and params["mode"] == "3d":
-            errors.append(f"{label}は現在2Dモードのみ対応しています")
     if params["dti"]["enabled"]:
         check_range(params["dti"]["width_um"], "dti_width_um", "DTI幅 [µm]")
         if not (0.0 <= params["dti"]["depth_um"] <= params["layers"]["si_um"]):
