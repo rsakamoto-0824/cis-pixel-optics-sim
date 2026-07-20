@@ -10,7 +10,6 @@
   <header>
     <div>
       <h1>CIS画素光学シミュレーター</h1>
-      <p class="subtitle">FDTD法（Meep）による集光特性評価 — 2D断面モード</p>
     </div>
     <div class="header-links">
       <a href="/static/history.html" target="_blank" rel="noopener"
@@ -84,6 +83,17 @@
               <input type="number" id="ocl-n" value="1.58"
                      min="1.2" max="2.5" step="any">
             </label>
+            <label>表面反射防止膜厚 [µm]
+              <input type="number" id="ocl-coat" value="0"
+                     min="0" max="0.3" step="any">
+            </label>
+            <label>反射防止膜屈折率
+              <input type="number" id="ocl-coat-n" value="1.26"
+                     min="1.0" max="2.5" step="any">
+            </label>
+            <p class="field-note">レンズ表面を覆う薄い反射防止膜です。
+              0で膜なし。厚さの目安は 波長 ÷（4 × 屈折率）
+              （550 nm・屈折率1.26では約0.11 µm）。</p>
             <label>レンズ形状
               <select id="ocl-shape">
                 <option value="spherical_cap" selected>球面キャップ</option>
@@ -264,6 +274,8 @@
                 <option value="ocl.gap_height_left_um">OCL左ギャップ高さ [µm]</option>
                 <option value="ocl.gap_height_right_um">OCL右ギャップ高さ [µm]</option>
                 <option value="materials.ocl_n">OCL屈折率</option>
+                <option value="ocl.coat_um">OCL反射防止膜厚 [µm]</option>
+                <option value="materials.ocl_coat_n">OCL反射防止膜屈折率</option>
                 <option value="dti.offset_um">DTIオフセット [µm]</option>
                 <option value="layers.color_filter_um">カラーフィルタ膜厚 [µm]</option>
               </select>

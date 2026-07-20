@@ -107,16 +107,27 @@ function renderResult(jobId, result, targetArea) {
 function renderSweepResult(jobId, result, targetArea) {
   const isRgb = result.type === "rgb";
   const RGB_COLOR_NAMES = ["R", "G", "B"];
+  // RGB評価で複数画素（共有レンズ・受光内訳など）のときは、
+  // 色ごとに各画素へどれだけ集光したかの列も表示する
+  const maxPixelCount = Math.max(...result.sweep.results.map(
+    (entry) => entry.collection_efficiency_per_pixel.length));
+  const showPerPixel = isRgb && maxPixelCount >= 2;
   const rows = result.sweep.results.map((entry, index) => {
     const colorCell = isRgb
       ? `<td>${RGB_COLOR_NAMES[index] ?? ""}</td>` : "";
+    const perPixelCells = !showPerPixel ? ""
+      : entry.collection_efficiency_per_pixel
+        .map((value) => `<td>${(value * 100).toFixed(1)}%</td>`).join("");
     const crosstalkCell = entry.crosstalk_total !== undefined
       ? `<td>${(entry.crosstalk_total * 100).toFixed(2)}%</td>` : "";
     return `<tr>${colorCell}<td>${entry.value}</td>` +
       `<td>${(entry.collection_efficiency_total * 100).toFixed(1)}%</td>` +
-      crosstalkCell + `</tr>`;
+      perPixelCells + crosstalkCell + `</tr>`;
   }).join("");
   const colorHeader = isRgb ? "<th>色</th>" : "";
+  const perPixelHeader = !showPerPixel ? ""
+    : Array.from({ length: maxPixelCount },
+                 (unused, index) => `<th>画素${index + 1}</th>`).join("");
   const crosstalkHeader = result.sweep.results[0].crosstalk_total !== undefined
     ? "<th>クロストーク</th>" : "";
   const summaryLabel = isRgb ? "RGB 3波長評価" : "スイープ対象";
@@ -137,7 +148,7 @@ function renderSweepResult(jobId, result, targetArea) {
     <img src="/api/jobs/${jobId}/sweep-plot" alt="スイープ結果のグラフ">
     <table>
       <thead><tr>${colorHeader}<th>${result.sweep.label}</th><th>集光効率</th>
-        ${crosstalkHeader}</tr></thead>
+        ${perPixelHeader}${crosstalkHeader}</tr></thead>
       <tbody>${rows}</tbody>
     </table>
   `;

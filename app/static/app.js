@@ -95,9 +95,11 @@ function collectParams() {
       base_um: numberValue("ocl-base"),
       gap_height_left_um: numberValue("ocl-gap-left"),
       gap_height_right_um: numberValue("ocl-gap-right"),
+      coat_um: numberValue("ocl-coat"),
     },
     materials: {
       ocl_n: numberValue("ocl-n"),
+      ocl_coat_n: numberValue("ocl-coat-n"),
     },
     layers: {
       planarization_um: numberValue("layer-planarization"),
