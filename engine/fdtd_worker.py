@@ -849,6 +849,9 @@ def run_sweep(params, job_dir, progress_path, start_time):
             entry["crosstalk_total"] = case_result["crosstalk_total"]
             entry["collection_efficiency_center"] = \
                 case_result["collection_efficiency_center"]
+            # 表示側が「左隣／中央／右隣」の位置名を付けるための情報
+            entry["center_pixel_indices"] = case_result["center_pixel_indices"]
+            entry["unit_pixels"] = case_result["unit_pixels"]
         sweep_results.append(entry)
 
     write_sweep_csv(job_dir / "sweep.csv", label, sweep_results,
