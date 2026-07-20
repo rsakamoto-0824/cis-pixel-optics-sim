@@ -47,14 +47,16 @@ def compute_stack_heights(params):
     if params["ocl"]["enabled"]:
         ocl_height = params["ocl"]["height_um"]
         ocl_base = params["ocl"]["base_um"]
+        ocl_coat = params["ocl"]["coat_um"]
     else:
         ocl_height = 0.0
         ocl_base = 0.0
+        ocl_coat = 0.0
     ar_top = layers["ar_um"]
     cf_top = ar_top + layers["color_filter_um"]
     planarization_top = cf_top + layers["planarization_um"]
     lens_base = planarization_top + ocl_base
-    source_height = lens_base + ocl_height + AIR_GAP_ABOVE_OCL_UM
+    source_height = lens_base + ocl_height + ocl_coat + AIR_GAP_ABOVE_OCL_UM
     top = source_height + SOURCE_TO_PML_GAP_UM + PML_THICKNESS_UM
     # Siは下側PMLの中まで満たし、裏面反射のない半無限基板として扱う
     bottom = -layers["si_um"] - PML_THICKNESS_UM
@@ -307,7 +309,22 @@ def build_structure_2d(params, media):
         wrap_shifts = [0.0]
 
     if params["ocl"]["enabled"]:
+        coat_um = params["ocl"]["coat_um"]
         for center_x, half_width in lenses:
+            # 表面反射防止膜: レンズ面を膜厚ぶん上へずらした外側形状を先に
+            # 置き、後から描く本体レンズが内側を上書きして殻状の薄膜が残る
+            if coat_um > 0.0:
+                geometry.append(build_lens_prism_2d(
+                    center_x, to_cell_y(heights["lens_base"]),
+                    half_width, params["ocl"]["height_um"] + coat_um,
+                    params["ocl"]["shape"],
+                    params["ocl"]["superellipse_exponent"],
+                    media["ocl_coat"],
+                    apex_offset_um=params["ocl"]["offset_um"],
+                    gap_height_left_um=(
+                        params["ocl"]["gap_height_left_um"] + coat_um),
+                    gap_height_right_um=(
+                        params["ocl"]["gap_height_right_um"] + coat_um)))
             geometry.append(build_lens_prism_2d(
                 center_x, to_cell_y(heights["lens_base"]),
                 half_width, params["ocl"]["height_um"],
@@ -531,7 +548,22 @@ def build_structure_3d(params, media):
             material=media[name]))
 
     if params["ocl"]["enabled"]:
+        coat_um = params["ocl"]["coat_um"]
         for center_x, center_y in lens_centers:
+            # 表面反射防止膜（2Dと同じ考え方: 外側形状→本体の順に描く）
+            if coat_um > 0.0:
+                geometry.extend(build_lens_slices_3d(
+                    center_x, center_y, to_cell_z(heights["lens_base"]),
+                    lens_half_widths[0], lens_half_widths[1],
+                    params["ocl"]["height_um"] + coat_um,
+                    params["ocl"]["shape"],
+                    params["ocl"]["superellipse_exponent"],
+                    media["ocl_coat"],
+                    apex_offset_um=params["ocl"]["offset_um"],
+                    gap_height_left_um=(
+                        params["ocl"]["gap_height_left_um"] + coat_um),
+                    gap_height_right_um=(
+                        params["ocl"]["gap_height_right_um"] + coat_um)))
             geometry.extend(build_lens_slices_3d(
                 center_x, center_y, to_cell_z(heights["lens_base"]),
                 lens_half_widths[0], lens_half_widths[1],

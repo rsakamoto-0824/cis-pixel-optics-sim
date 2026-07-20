@@ -52,6 +52,8 @@ PARAMETER_LIMITS = {
     "ocl_height_um": (0.1, 1.5),
     "ocl_base_um": (0.0, 2.0),
     "ocl_n": (1.2, 2.5),
+    "ocl_coat_um": (0.0, 0.3),
+    "ocl_coat_n": (1.0, 2.5),
     "wavelength_nm": (400.0, 700.0),
     "incident_angle_deg": (0.0, 35.0),
     "dti_width_um": (0.05, 0.3),
@@ -69,6 +71,8 @@ SWEEP_PARAMETER_LABELS = {
     "ocl.gap_height_left_um": "OCL左ギャップ高さ [µm]",
     "ocl.gap_height_right_um": "OCL右ギャップ高さ [µm]",
     "materials.ocl_n": "OCL屈折率",
+    "ocl.coat_um": "OCL反射防止膜厚 [µm]",
+    "materials.ocl_coat_n": "OCL反射防止膜屈折率",
     "dti.offset_um": "DTIオフセット [µm]",
     "layers.color_filter_um": "カラーフィルタ膜厚 [µm]",
 }
@@ -88,6 +92,8 @@ BATCH_COLUMN_TYPES = {
     "ocl.gap_height_left_um": "float",
     "ocl.gap_height_right_um": "float",
     "materials.ocl_n": "float",
+    "ocl.coat_um": "float",
+    "materials.ocl_coat_n": "float",
     "materials.planarization_n": "float",
     "materials.color_filter_n": "float",
     "materials.ar_n": "float",
@@ -140,6 +146,8 @@ DEFAULT_PARAMS = {
         # レンズが傾いた状態の集光を評価できる
         "gap_height_left_um": 0.0,
         "gap_height_right_um": 0.0,
+        # レンズ表面を覆う反射防止膜の厚さ（0 = 膜なし）
+        "coat_um": 0.0,
     },
     "layers": {
         "planarization_um": 0.1,
@@ -149,6 +157,7 @@ DEFAULT_PARAMS = {
     },
     "materials": {
         "ocl_n": materials.DEFAULT_OCL_N,
+        "ocl_coat_n": materials.DEFAULT_OCL_COAT_N,
         "planarization_n": materials.DEFAULT_PLANARIZATION_N,
         "color_filter_n": materials.DEFAULT_COLOR_FILTER_N,
         "ar_n": materials.DEFAULT_AR_N,
@@ -301,6 +310,10 @@ def validate_params(params):
         check_range(params["ocl"]["base_um"], "ocl_base_um",
                     "OCLベース層厚 [µm]")
         check_range(params["materials"]["ocl_n"], "ocl_n", "OCL屈折率")
+        check_range(params["ocl"]["coat_um"], "ocl_coat_um",
+                    "OCL反射防止膜厚 [µm]")
+        check_range(params["materials"]["ocl_coat_n"], "ocl_coat_n",
+                    "OCL反射防止膜屈折率")
         if params["ocl"]["shape"] not in ("spherical_cap", "superellipse"):
             errors.append(f"未知のレンズ形状です: {params['ocl']['shape']}")
         if params["ocl"]["sharing"] not in ("single", "shared2", "shared4"):
@@ -512,6 +525,8 @@ def build_media(params):
     mat = params["materials"]
     return {
         "ocl": materials.make_medium(mat["ocl_n"], 0.0, wavelength_um),
+        "ocl_coat": materials.make_medium(mat["ocl_coat_n"], 0.0,
+                                          wavelength_um),
         "planarization": materials.make_medium(mat["planarization_n"], 0.0,
                                                wavelength_um),
         "color_filter": materials.make_medium(mat["color_filter_n"], 0.0,

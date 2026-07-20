@@ -12,6 +12,8 @@ import numpy as np
 
 # 非分散材料の既定屈折率（input.json でユーザーが上書き可能）
 DEFAULT_OCL_N = 1.58
+# OCL表面の反射防止膜。理想値は sqrt(空気 × OCL) = sqrt(1.58) ≈ 1.26
+DEFAULT_OCL_COAT_N = 1.26
 DEFAULT_PLANARIZATION_N = 1.50
 DEFAULT_COLOR_FILTER_N = 1.55
 DEFAULT_AR_N = 1.46        # 反射防止膜・埋め込み酸化膜（SiO2相当）
